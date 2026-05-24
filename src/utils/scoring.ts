@@ -116,7 +116,7 @@ export async function getSubmissions(): Promise<Submission[]> {
 
     if (error || !data) return getSubmissionsLocal();
 
-    return data.map((row) => ({
+    return data.map((row: any) => ({
       id: row.id,
       date: row.date,
       data: row.data,

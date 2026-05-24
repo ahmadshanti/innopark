@@ -28,7 +28,7 @@ const emptyInfo: ProjectInfo = {
   projectName: '', applicantName: '', email: '', department: '', description: '',
 };
 
-export default function EvaluationPage({ onComplete, onBack }: EvaluationPageProps) {
+export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
   const nav = useNavigate();
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);

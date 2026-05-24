@@ -9,12 +9,13 @@ import { supabase } from './lib/supabase';
 import type { Submission } from './types';
 
 function ProtectedAdmin({ onLogout }: { onLogout: () => void }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [checking, setChecking] = useState(true);
   const [authed, setAuthed] = useState(false);
   const nav = useNavigate();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(({ data }: { data: any }) => {
       setAuthed(!!data.session);
       setChecking(false);
     });
