@@ -27,7 +27,7 @@ export default function LoginPage({ onLogin, onBack }: LoginPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col items-center justify-center px-4" dir="rtl">
+    <div className="min-h-screen bg-cream flex flex-col items-center justify-center px-4 py-8" dir="rtl">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}

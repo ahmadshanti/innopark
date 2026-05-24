@@ -27,8 +27,8 @@ export default function HowAndLevels({ onStartEval }: HowAndLevelsProps) {
     <>
       {/* How it works */}
       <section id="how" className="py-24 bg-[#F0F0EA]">
-        <div className="max-w-7xl mx-auto px-8">
-          <div ref={refHow as React.RefObject<HTMLDivElement>} className="mb-16 text-right reveal">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div ref={refHow as React.RefObject<HTMLDivElement>} className="mb-10 md:mb-16 text-right reveal">
             <span className="inline-block bg-gold text-navy text-xs font-bold tracking-[3px] uppercase px-4 py-2 rounded mb-5">
               كيف يعمل؟
             </span>
@@ -36,7 +36,7 @@ export default function HowAndLevels({ onStartEval }: HowAndLevelsProps) {
             <p className="text-navy/50 text-lg">من تعبئة النموذج وحتى الحصول على توصية احترافية</p>
           </div>
 
-          <div className="grid grid-cols-4 gap-px bg-navy/8 rounded-2xl overflow-hidden border border-navy/8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-navy/8 rounded-2xl overflow-hidden border border-navy/8">
             {steps.map((s, i) => (
               <motion.div
                 key={s.n}
@@ -44,7 +44,7 @@ export default function HowAndLevels({ onStartEval }: HowAndLevelsProps) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="how-card bg-[#F0F0EA] p-8 cursor-default transition-colors duration-300 hover:bg-navy group"
+                className="how-card bg-[#F0F0EA] p-5 md:p-8 cursor-default transition-colors duration-300 hover:bg-navy group"
               >
                 {/* الرقم */}
                 <div className="how-num font-grotesk text-7xl font-extrabold leading-none mb-6 transition-colors duration-300">
@@ -70,8 +70,8 @@ export default function HowAndLevels({ onStartEval }: HowAndLevelsProps) {
 
       {/* Maturity Levels */}
       <section className="py-24 bg-navy">
-        <div className="max-w-7xl mx-auto px-8">
-          <div ref={refLevels as React.RefObject<HTMLDivElement>} className="mb-16 reveal">
+        <div className="max-w-7xl mx-auto px-4 md:px-8">
+          <div ref={refLevels as React.RefObject<HTMLDivElement>} className="mb-10 md:mb-16 reveal">
             <span className="inline-block bg-gold text-navy text-xs font-bold tracking-[3px] uppercase px-4 py-2 rounded mb-5">
               مستويات النضج
             </span>
@@ -79,7 +79,7 @@ export default function HowAndLevels({ onStartEval }: HowAndLevelsProps) {
             <p className="text-white/40 text-lg">كل مشروع يحصل على مستوى دقيق وتوصية مخصصة</p>
           </div>
 
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {levels.map((l, i) => (
               <motion.div
                 key={l.name}
@@ -115,28 +115,28 @@ export default function HowAndLevels({ onStartEval }: HowAndLevelsProps) {
 
       {/* CTA */}
       <section className="bg-gold py-20">
-        <div ref={refCta as React.RefObject<HTMLDivElement>} className="max-w-7xl mx-auto px-8 flex items-center justify-between reveal">
+        <div ref={refCta as React.RefObject<HTMLDivElement>} className="max-w-7xl mx-auto px-4 md:px-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 reveal">
           <div>
-            <h2 className="text-4xl font-black text-navy leading-tight mb-3">
+            <h2 className="text-2xl md:text-4xl font-black text-navy leading-tight mb-3">
               مشروعك الابتكاري<br />يستحق تقييماً احترافياً
             </h2>
-            <p className="text-navy/60 text-lg">ابدأ الآن وستحصل على توصية واضحة خلال دقائق</p>
+            <p className="text-navy/60 text-base md:text-lg">ابدأ الآن وستحصل على توصية واضحة خلال دقائق</p>
           </div>
           <motion.button
             whileHover={{ scale: 1.04, x: -4 }}
             whileTap={{ scale: 0.97 }}
             onClick={onStartEval}
-            className="bg-navy text-white font-black text-xl px-10 py-5 rounded-xl flex items-center gap-4 flex-shrink-0"
+            className="bg-navy text-white font-black text-base md:text-xl px-7 md:px-10 py-4 md:py-5 rounded-xl flex items-center gap-3 md:gap-4 flex-shrink-0 min-h-[44px] w-full md:w-auto justify-center"
           >
             ابدأ التقييم الآن
-            <span className="text-gold text-2xl">←</span>
+            <span className="text-gold text-xl md:text-2xl">←</span>
           </motion.button>
         </div>
       </section>
 
       {/* Footer */}
-      <footer id="footer" className="bg-[#0f1e47] py-8 px-8">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <footer id="footer" className="bg-[#0f1e47] py-6 md:py-8 px-4 md:px-8">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="INNOPARK" width={44} height={44} style={{ objectFit: 'contain' }} />
             <div>

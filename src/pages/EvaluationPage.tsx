@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 
 interface EvaluationPageProps {
   onComplete: (submission: Submission) => void;
-  onBack: () => void;
+  onBack?: () => void;
 }
 
 const STEPS = [
@@ -111,17 +111,17 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
       </div>
 
       {/* Stepper bar */}
-      <div className="bg-white border-b border-navy/8 px-8 py-4 flex-shrink-0 overflow-x-auto">
-        <div className="max-w-4xl mx-auto flex items-center justify-center gap-0 min-w-[600px]">
+      <div className="bg-white border-b border-navy/8 px-4 md:px-8 py-3 md:py-4 flex-shrink-0 overflow-x-auto">
+        <div className="max-w-4xl mx-auto flex items-center justify-center gap-0 min-w-[500px]">
           {[...STEPS].reverse().map((s, ri) => {
             const i = STEPS.length - 1 - ri;
             return (
               <div key={s.id} className="flex items-center">
                 <div className="flex flex-col items-center">
                   <div className={`flex items-center justify-center rounded-full font-bold transition-all duration-300 cursor-default select-none ${
-                    i < step  ? 'w-9 h-9 bg-gold text-navy text-sm'
-                    : i === step ? 'w-10 h-10 bg-navy text-white ring-4 ring-navy/15 text-base'
-                    : 'w-8 h-8 bg-navy/6 text-navy/25 text-sm'
+                    i < step  ? 'w-7 h-7 md:w-9 md:h-9 bg-gold text-navy text-xs md:text-sm'
+                    : i === step ? 'w-8 h-8 md:w-10 md:h-10 bg-navy text-white ring-4 ring-navy/15 text-sm md:text-base'
+                    : 'w-6 h-6 md:w-8 md:h-8 bg-navy/6 text-navy/25 text-xs md:text-sm'
                   }`}>
                     {i < step ? '✓' : s.icon}
                   </div>
@@ -141,7 +141,7 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full px-8 evaluation-content" style={{ paddingTop: '2.5rem' }}>
+      <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full px-4 md:px-8 evaluation-content" style={{ paddingTop: '2rem' }}>
 
         {/* Step content */}
         <AnimatePresence mode="wait" custom={dir}>
@@ -162,7 +162,7 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
                   <h2 className="text-3xl font-black text-navy mb-2">معلومات المشروع</h2>
                   <p className="text-navy/50">أدخل بيانات مشروعك الأساسية للبدء في عملية التقييم</p>
                 </div>
-                <div className="bg-white rounded-2xl border border-navy/8 p-8 grid grid-cols-2 gap-6">
+                <div className="bg-white rounded-2xl border border-navy/8 p-5 md:p-8 grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6">
                   {[
                     { label: 'اسم المشروع *', key: 'projectName', placeholder: 'أدخل اسم مشروعك الابتكاري', col: 2 },
                     { label: 'اسم مقدم الطلب *', key: 'applicantName', placeholder: 'الاسم الكامل' },
@@ -197,7 +197,7 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
             {/* Steps 1-5 — Dimension scoring */}
             {step >= 1 && step <= 5 && currentDim && (
               <div>
-                <div className="mb-8 flex items-start justify-between">
+                <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
                   <div>
                     <div className="inline-flex items-center gap-2 bg-navy/6 rounded-lg px-3 py-1.5 mb-3">
                       <span className="text-xs font-bold text-navy/50 uppercase tracking-widest">المحور {step} من 5</span>
@@ -215,7 +215,7 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
                     <div className="text-white/40 text-xs mt-1">متوسط</div>
                   </div>
                 </div>
-                <div className="bg-white rounded-2xl border border-navy/8 p-8">
+                <div className="bg-white rounded-2xl border border-navy/8 p-4 md:p-8">
                   {currentDim.criteria.map(criterion => (
                     <StarRating
                       key={criterion}
@@ -237,7 +237,7 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
                 </div>
                 <div className="bg-white rounded-2xl border border-navy/8 p-6 mb-4">
                   <div className="text-xs font-bold text-navy/40 uppercase tracking-widest mb-4">معلومات المشروع</div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {[
                       { label: 'اسم المشروع', val: projectInfo.projectName },
                       { label: 'مقدم الطلب', val: projectInfo.applicantName },
@@ -305,7 +305,7 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
         )}
 
         {/* Navigation */}
-        <div className="flex items-center justify-between mt-8 pt-6 border-t border-navy/8">
+        <div className="flex items-center justify-between mt-6 pt-5 border-t border-navy/8">
           <button
             onClick={prev}
             disabled={step === 0}
@@ -337,8 +337,8 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
       </div>
 
       {/* Footer */}
-      <footer className="bg-[#0f1e47] py-6 px-8 mt-auto flex-shrink-0">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+      <footer className="bg-[#0f1e47] py-5 px-4 md:px-8 mt-auto flex-shrink-0">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="INNOPARK" width={36} height={36} style={{ objectFit: 'contain' }} />
             <div>

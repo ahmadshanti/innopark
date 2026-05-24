@@ -5,11 +5,12 @@ import EvaluationPage from './pages/EvaluationPage';
 import ResultsPage from './pages/ResultsPage';
 import AdminPage from './pages/AdminPage';
 import LoginPage from './pages/LoginPage';
+import HowItWorksPage from './pages/HowItWorksPage';
+import ImplementationPage from './pages/ImplementationPage';
 import { supabase } from './lib/supabase';
 import type { Submission } from './types';
 
 function ProtectedAdmin({ onLogout }: { onLogout: () => void }) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [checking, setChecking] = useState(true);
   const [authed, setAuthed] = useState(false);
   const nav = useNavigate();
@@ -36,35 +37,23 @@ function AppRoutes() {
 
   async function handleAdminClick() {
     const { data } = await supabase.auth.getSession();
-    nav(data.session ? '/admin' : '/login');
+    nav((data as any).session ? '/admin' : '/login');
   }
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    localStorage.removeItem('innopark_admin');
     nav('/');
   }
 
   return (
     <Routes>
-      <Route path="/" element={
-        <HomePage onStartEval={() => nav('/evaluation')} onAdminClick={handleAdminClick} />
-      } />
-      <Route path="/evaluation" element={
-        <EvaluationPage
-          onComplete={(sub) => { setSubmission(sub); nav('/results'); }}
-          onBack={() => nav('/')}
-        />
-      } />
-      <Route path="/results" element={
-        submission
-          ? <ResultsPage submission={submission} onBack={() => nav('/')} onNewEval={() => nav('/evaluation')} />
-          : <Navigate to="/" replace />
-      } />
-      <Route path="/login" element={
-        <LoginPage onLogin={() => nav('/admin')} onBack={() => nav('/')} />
-      } />
+      <Route path="/" element={<HomePage onStartEval={() => nav('/evaluation')} onAdminClick={handleAdminClick} />} />
+      <Route path="/evaluation" element={<EvaluationPage onComplete={(sub) => { setSubmission(sub); nav('/results'); }} />} />
+      <Route path="/results" element={submission ? <ResultsPage submission={submission} onBack={() => nav('/')} onNewEval={() => nav('/evaluation')} /> : <Navigate to="/" replace />} />
+      <Route path="/login" element={<LoginPage onLogin={() => nav('/admin')} onBack={() => nav('/')} />} />
       <Route path="/admin" element={<ProtectedAdmin onLogout={handleLogout} />} />
+      <Route path="/how-it-works" element={<HowItWorksPage />} />
+      <Route path="/implementation" element={<ImplementationPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

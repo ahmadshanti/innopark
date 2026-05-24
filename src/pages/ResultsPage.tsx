@@ -49,11 +49,11 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
       <Navbar onStartEval={onNewEval} onAdminClick={onBack} />
 
       {/* Hero result bar */}
-      <div className="bg-navy px-8 flex-shrink-0" style={{ paddingTop: "100px", paddingBottom: "40px" }}>
+      <div className="bg-navy px-4 md:px-8 flex-shrink-0" style={{ paddingTop: "80px", paddingBottom: "32px" }}>
         <div className="max-w-5xl mx-auto">
 
           {/* Top row: score + name + classification + decision */}
-          <div className="flex items-center gap-8 mb-6 flex-wrap">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 md:gap-8 mb-6">
 
             {/* Circular score */}
             <div className="relative flex-shrink-0" style={{ width: '120px', height: '120px' }}>
@@ -93,14 +93,14 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
             </div>
 
             {/* Decision */}
-            <div className="border border-white/10 rounded-2xl p-5 max-w-sm flex-1">
+            <div className="border border-white/10 rounded-2xl p-4 md:p-5 w-full sm:max-w-sm sm:flex-1">
               <div className="text-white/40 text-xs font-bold uppercase tracking-widest mb-2">القرار الموصى به</div>
               <div className="text-white text-sm leading-relaxed">{results.decision}</div>
             </div>
           </div>
 
           {/* Bottom row: action buttons */}
-          <div className="flex items-center gap-3 border-t border-white/10 pt-5">
+          <div className="flex flex-wrap items-center gap-2 md:gap-3 border-t border-white/10 pt-4 md:pt-5">
             <motion.button
               whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
               onClick={handlePrint}
@@ -126,7 +126,7 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
       </div>
 
       {/* Content */}
-      <div ref={printRef} className="flex-1 max-w-5xl mx-auto w-full px-8 py-10">
+      <div ref={printRef} className="flex-1 max-w-5xl mx-auto w-full px-4 md:px-8 py-6 md:py-10">
 
         {/* Dimensions table */}
         <motion.div
@@ -135,20 +135,21 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
           transition={{ delay: 0.2 }}
           className="bg-white rounded-2xl border border-navy/8 overflow-hidden mb-6"
         >
-          <div className="px-6 py-4 border-b border-navy/8 flex items-center justify-between">
+          <div className="px-4 md:px-6 py-4 border-b border-navy/8 flex items-center justify-between">
             <div className="font-black text-navy text-lg">درجات المحاور</div>
             <div className="text-xs text-navy/40">الدرجة الكلية من 100</div>
           </div>
-          <div className="divide-y divide-navy/5">
+          <div className="overflow-x-auto">
+          <div className="divide-y divide-navy/5 min-w-[420px]">
             {results.dimensions.map((dim, i) => (
               <motion.div
                 key={dim.key}
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.1 * i + 0.3 }}
-                className="px-6 py-4 flex items-center gap-4"
+                className="px-4 md:px-6 py-4 flex items-center gap-3 md:gap-4"
               >
-                <div className="w-36 text-sm font-bold text-navy">{dim.nameAr}</div>
+                <div className="w-28 md:w-36 text-sm font-bold text-navy flex-shrink-0">{dim.nameAr}</div>
                 <div className="flex-1 h-2.5 bg-navy/5 rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
@@ -171,7 +172,8 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
               </motion.div>
             ))}
           </div>
-          <div className="px-6 py-4 bg-navy/3 border-t border-navy/8 flex items-center justify-between">
+          </div>
+          <div className="px-4 md:px-6 py-4 bg-navy/3 border-t border-navy/8 flex items-center justify-between">
             <div className="font-black text-navy">المجموع الكلي</div>
             <div className="text-2xl font-black" style={{ color: color.bar, fontFamily: "'Space Grotesk',sans-serif" }}>
               {results.finalScore} / 100
@@ -180,7 +182,7 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
         </motion.div>
 
         {/* Strengths & Weaknesses */}
-        <div className="grid grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mb-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -264,7 +266,7 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
           className="bg-white rounded-2xl border border-navy/8 p-6"
         >
           <div className="text-xs font-bold text-navy/40 uppercase tracking-widest mb-4">بيانات مقدم الطلب</div>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: 'اسم المشروع', val: data.projectInfo.projectName },
               { label: 'مقدم الطلب', val: data.projectInfo.applicantName },
@@ -294,8 +296,8 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
       </div>
 
       {/* Footer */}
-      <footer className="bg-[#0f1e47] py-6 px-8 flex-shrink-0">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
+      <footer className="bg-[#0f1e47] py-5 px-4 md:px-8 flex-shrink-0">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="INNOPARK" width={36} height={36} style={{ objectFit: 'contain' }} />
             <div>

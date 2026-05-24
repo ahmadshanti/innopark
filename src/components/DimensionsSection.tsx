@@ -46,7 +46,7 @@ const dims = [
 export default function DimensionsSection() {
   return (
     <section id="dimensions" className="py-24 bg-cream">
-      <div className="max-w-7xl mx-auto px-8">
+      <div className="max-w-7xl mx-auto px-4 md:px-8">
         <div className="mb-16">
           <motion.span
             initial={{ opacity: 0, y: 10 }}
@@ -77,7 +77,7 @@ export default function DimensionsSection() {
           </motion.p>
         </div>
 
-        <div className="grid grid-cols-5 divide-x divide-x-reverse divide-navy/10 border border-navy/10 rounded-2xl overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 border border-navy/10 rounded-2xl overflow-hidden divide-y divide-navy/10 sm:divide-y-0 sm:divide-x sm:divide-x-reverse">
           {dims.map((dim, i) => (
             <motion.div
               key={dim.num}

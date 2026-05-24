@@ -134,9 +134,9 @@ export default function AdminPage({ onBack, onLogout }: AdminPageProps) {
       <Navbar onStartEval={() => nav('/evaluation')} onAdminClick={() => {}} />
 
       {/* Header */}
-      <div className="bg-navy px-8 flex-shrink-0" style={{ paddingTop: '120px', paddingBottom: '32px' }}>
+      <div className="bg-navy px-4 md:px-8 flex-shrink-0" style={{ paddingTop: '80px', paddingBottom: '32px' }}>
         <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
             <div>
               <div className="text-white/40 text-sm mb-1">INNOPARK — لوحة التحكم</div>
               <h1 className="text-3xl font-black text-white">إدارة النظام</h1>
@@ -158,7 +158,7 @@ export default function AdminPage({ onBack, onLogout }: AdminPageProps) {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-6">
             {[
               { label: 'إجمالي التقييمات', val: stats.total, icon: '📋' },
               { label: 'متوسط الدرجات', val: stats.avg, icon: '📊' },
@@ -188,13 +188,13 @@ export default function AdminPage({ onBack, onLogout }: AdminPageProps) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 max-w-6xl mx-auto w-full px-8 py-8">
+      <div className="flex-1 max-w-6xl mx-auto w-full px-4 md:px-8 py-6 md:py-8">
 
         {/* Submissions Tab */}
         {tab === 'submissions' && (
           <>
             {/* Filters */}
-            <div className="flex items-center gap-4 mb-6 flex-wrap">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 md:gap-4 mb-6">
               <input
                 type="text" value={search}
                 onChange={e => setSearch(e.target.value)}
@@ -221,14 +221,15 @@ export default function AdminPage({ onBack, onLogout }: AdminPageProps) {
               </div>
             ) : (
               <div className="bg-white rounded-2xl border border-navy/8 overflow-hidden">
-                <div className="grid grid-cols-6 px-6 py-3 bg-navy/3 border-b border-navy/8 text-xs font-bold text-navy/40 uppercase tracking-wider">
+                <div className="overflow-x-auto">
+                <div className="grid grid-cols-6 px-6 py-3 bg-navy/3 border-b border-navy/8 text-xs font-bold text-navy/40 uppercase tracking-wider min-w-[600px]">
                   <div className="col-span-2">المشروع</div>
                   <div>الجهة</div>
                   <div>الدرجة</div>
                   <div>التصنيف</div>
                   <div>التاريخ</div>
                 </div>
-                <div className="divide-y divide-navy/5">
+                <div className="divide-y divide-navy/5 min-w-[600px]">
                   {filtered.map((sub, i) => {
                     const c = LEVEL_COLORS[sub.results.classification] ?? { bg: '#f1f5f9', text: '#64748b' };
                     return (
@@ -249,6 +250,7 @@ export default function AdminPage({ onBack, onLogout }: AdminPageProps) {
                       </motion.div>
                     );
                   })}
+                </div>
                 </div>
               </div>
             )}
@@ -355,7 +357,7 @@ export default function AdminPage({ onBack, onLogout }: AdminPageProps) {
       <AnimatePresence>
         {selected && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-navy/50 backdrop-blur-sm z-50 flex items-center justify-center p-8"
+            className="fixed inset-0 bg-navy/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 md:p-8"
             onClick={() => setSelected(null)}
           >
             <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -404,8 +406,8 @@ export default function AdminPage({ onBack, onLogout }: AdminPageProps) {
         )}
       </AnimatePresence>
 
-      <footer className="bg-[#0f1e47] py-6 px-8 flex-shrink-0">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+      <footer className="bg-[#0f1e47] py-5 px-4 md:px-8 flex-shrink-0">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="INNOPARK" width={36} height={36} style={{ objectFit: 'contain' }} />
             <div>
