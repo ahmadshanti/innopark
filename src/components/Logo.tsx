@@ -1,10 +1,9 @@
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
-  className?: string;
 }
 
-export default function Logo({ size = 'lg', className = '' }: LogoProps) {
-const sizes = { sm: 52, md: 72, lg: 96 };
+export default function Logo({ size = 'md' }: LogoProps) {
+  const sizes = { sm: 52, md: 72, lg: 96 };
   const s = sizes[size];
 
   const textSize = {
@@ -14,7 +13,7 @@ const sizes = { sm: 52, md: 72, lg: 96 };
   };
 
   return (
-    <div className={`flex items-center gap-0.5{className}`}>
+    <div className="flex items-center gap-2">
       <img
         src="/logo.png"
         alt="INNOPARK"
