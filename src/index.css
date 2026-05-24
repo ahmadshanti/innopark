@@ -1,0 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Space+Grotesk:wght@400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Tajawal', sans-serif;
+  direction: rtl;
+  background: #FAFAF8;
+  color: #1B3A7A;
+  overflow-x: hidden;
+}
+
+.font-grotesk { font-family: 'Space Grotesk', sans-serif; }
+
+.text-outline {
+  -webkit-text-stroke: 2.5px #1B3A7A;
+  color: transparent;
+}
+.text-outline-gold {
+  -webkit-text-stroke: 2px #F5A623;
+  color: transparent;
+}
+
+.nav-link {
+  position: relative;
+  padding-bottom: 2px;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0; right: 0;
+  width: 0; height: 2px;
+  background: #F5A623;
+  transition: width 0.3s ease;
+}
+.nav-link:hover::after { width: 100%; }
+
+/* Dim card */
+.dim-num { color: rgba(27,58,122,0.08); }
+.dim-card { transition: all 0.3s cubic-bezier(0.4,0,0.2,1); }
+.dim-card:hover { background: #1B3A7A; }
+.dim-card:hover .dim-num { color: rgba(245,166,35,0.45) !important; }
+.dim-card:hover .dim-name { color: #fff; }
+.dim-card:hover .dim-desc { color: rgba(255,255,255,0.45); }
+.dim-card:hover .dim-badge { background: rgba(245,166,35,0.2); color: #F5A623; }
+.dim-card:hover .dim-icon { background: rgba(245,166,35,0.15); color: #F5A623; }
+
+@keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+.ring-spin { animation: spin-slow 20s linear infinite; }
+.ring-reverse { animation: spin-reverse 15s linear infinite; }
+
+@keyframes pulse-dot { 0%,100% { opacity:1; transform: scale(1); } 50% { opacity:0.4; transform: scale(0.8); } }
+.pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+
+@keyframes float { 0%,100% { transform: translateY(0px); } 50% { transform: translateY(-12px); } }
+.float-anim { animation: float 4s ease-in-out infinite; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up { animation: fadeInUp 0.7s ease forwards; }
+.delay-1 { animation-delay: 0.1s; opacity: 0; }
+.delay-2 { animation-delay: 0.2s; opacity: 0; }
+.delay-3 { animation-delay: 0.35s; opacity: 0; }
+.delay-4 { animation-delay: 0.5s; opacity: 0; }
+.delay-5 { animation-delay: 0.65s; opacity: 0; }
+
+@keyframes bounce-down { 0%,100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
+.bounce-down { animation: bounce-down 1.5s ease-in-out infinite; }
+
+.level-bar { transition: width 1s ease; }
+
+.grid-sep { border-right: 1px solid rgba(27,58,122,0.08); }
+.grid-sep:last-child { border: none; }
+
+.stat-num {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* How card */
+.how-num { color: rgba(27,58,122,0.07); }
+.how-card:hover .how-num { color: rgba(245,166,35,0.35) !important; }
+
+/* Slider custom style */
+.slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #1B3A7A;
+  border: 3px solid white;
+  box-shadow: 0 1px 4px rgba(27,58,122,0.25);
+  cursor: pointer;
+  transition: transform 0.15s, background 0.2s;
+}
+.slider-input::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  background: #F5A623;
+}
+.slider-input::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #1B3A7A;
+  border: 3px solid white;
+  cursor: pointer;
+}
+
+/* Evaluation page content spacing */
+.evaluation-content {
+  padding-top: 4rem;
+  padding-bottom: 1rem;
+}
