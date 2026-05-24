@@ -46,7 +46,7 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
 
   return (
     <div className="min-h-screen bg-cream flex flex-col">
-      <Navbar onStartEval={onNewEval} onAdminClick={onBack} />
+      <Navbar />
 
       {/* Hero result bar */}
       <div className="bg-navy px-4 md:px-8 flex-shrink-0" style={{ paddingTop: "80px", paddingBottom: "32px" }}>

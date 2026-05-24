@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
-import { useNavigate } from 'react-router-dom';
 
 const phases = [
   {
@@ -40,11 +39,9 @@ const kpis = [
 ];
 
 export default function ImplementationPage() {
-  const nav = useNavigate();
-
   return (
     <div className="min-h-screen bg-cream flex flex-col">
-      <Navbar onStartEval={() => nav('/evaluation')} onAdminClick={() => nav('/admin')} />
+      <Navbar />
 
       {/* Hero */}
       <div className="bg-navy px-4 md:px-8 flex-shrink-0" style={{ paddingTop: '80px', paddingBottom: '40px' }}>

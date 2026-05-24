@@ -5,7 +5,8 @@
       "Bash(Select-Object FullName)",
       "Bash(Sort-Object FullName)",
       "Bash(npx tsc *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(Remove-Item \"C:\\\\Users\\\\ؤ\\\\Desktop\\\\innopark\\\\src\\\\pages\\\\SignUpPage.tsx\" -Force)"
     ]
   }
 }

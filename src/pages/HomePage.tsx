@@ -1,17 +1,13 @@
 import Navbar from '../components/Navbar';
 import { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Hero from '../components/Hero';
 import DimensionsSection from '../components/DimensionsSection';
 import HowAndLevels from '../components/HowAndLevels';
 
-interface HomePageProps {
-  onStartEval: () => void;
-  onAdminClick: () => void;
-}
-
-export default function HomePage({ onStartEval, onAdminClick }: HomePageProps) {
+export default function HomePage() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -24,12 +20,14 @@ export default function HomePage({ onStartEval, onAdminClick }: HomePageProps) {
     }
   }, [location]);
 
+  const goToEval = () => navigate('/evaluation');
+
   return (
     <div className="min-h-screen">
-      <Navbar onStartEval={onStartEval} onAdminClick={onAdminClick} />
-      <Hero onStartEval={onStartEval} />
+      <Navbar />
+      <Hero onStartEval={goToEval} />
       <DimensionsSection />
-      <HowAndLevels onStartEval={onStartEval} />
+      <HowAndLevels onStartEval={goToEval} />
     </div>
   );
 }

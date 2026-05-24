@@ -2,12 +2,9 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Logo from './Logo';
+import { supabase } from '../lib/supabase';
 
-interface NavbarProps {
-  onStartEval: () => void;
-  onAdminClick: () => void;
-  isStatic?: boolean;
-}
+type UserRole = 'visitor' | 'judge' | 'admin';
 
 const NAV_LINKS = [
   { label: 'الرئيسية', id: null, path: null },
@@ -32,12 +29,33 @@ function smoothScroll(targetY: number) {
   requestAnimationFrame(step);
 }
 
-export default function Navbar({ onStartEval, onAdminClick, isStatic = false }: NavbarProps) {
+export default function Navbar({ isStatic = false }: { isStatic?: boolean }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole>('visitor');
   const navigate = useNavigate();
   const location = useLocation();
   const isHome = location.pathname === '/';
+
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { session } } = await supabase.auth.getSession();
+      resolveRole(session);
+    }
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      resolveRole(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  function resolveRole(session: any) {
+    if (!session) { setUserRole('visitor'); return; }
+    if (session.user?.email === 'admin@innopark.ps') { setUserRole('admin'); return; }
+    setUserRole('judge');
+  }
 
   useEffect(() => {
     if (isStatic) return;
@@ -101,24 +119,58 @@ export default function Navbar({ onStartEval, onAdminClick, isStatic = false }: 
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={onAdminClick}
-            className={`hidden md:block text-sm font-medium px-4 py-2 rounded-lg transition-all duration-200 ${
-              isStatic
-                ? 'text-white/60 hover:text-white hover:bg-white/10'
-                : 'text-navy/60 hover:text-navy hover:bg-navy/5'
-            }`}
-          >
-            لوحة التحكم
-          </button>
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={onStartEval}
-            className="bg-gold hover:bg-gold-dark text-navy font-bold text-xs md:text-sm px-3 md:px-5 py-2 md:py-2.5 rounded-lg transition-colors duration-200 flex items-center gap-1.5 min-h-[44px]"
-          >
-            ابدأ التقييم
-          </motion.button>
+          {/* Visitor: login link */}
+          {userRole === 'visitor' && (
+            <button
+              onClick={() => navigate('/login')}
+              className={`hidden md:block text-sm font-medium px-4 py-2 rounded-lg transition-all duration-200 ${
+                isStatic
+                  ? 'text-white/60 hover:text-white hover:bg-white/10'
+                  : 'text-navy/60 hover:text-navy hover:bg-navy/5'
+              }`}
+            >
+              دخول
+            </button>
+          )}
+
+          {/* Judge: "تقييماتي" + "ابدأ التقييم" */}
+          {userRole === 'judge' && (
+            <>
+              <button
+                onClick={() => navigate('/judge')}
+                className={`hidden md:block text-sm font-medium px-4 py-2 rounded-lg transition-all duration-200 ${
+                  isStatic
+                    ? 'text-white/60 hover:text-white hover:bg-white/10'
+                    : 'text-navy/60 hover:text-navy hover:bg-navy/5'
+                }`}
+              >
+                تقييماتي
+              </button>
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => navigate('/evaluation')}
+                className="bg-gold hover:bg-gold-dark text-navy font-bold text-xs md:text-sm px-3 md:px-5 py-2 md:py-2.5 rounded-lg transition-colors duration-200 flex items-center gap-1.5 min-h-[44px]"
+              >
+                ابدأ التقييم
+              </motion.button>
+            </>
+          )}
+
+          {/* Admin: "لوحة التحكم" */}
+          {userRole === 'admin' && (
+            <button
+              onClick={() => navigate('/admin')}
+              className={`hidden md:block text-sm font-medium px-4 py-2 rounded-lg transition-all duration-200 ${
+                isStatic
+                  ? 'text-white/60 hover:text-white hover:bg-white/10'
+                  : 'text-navy/60 hover:text-navy hover:bg-navy/5'
+              }`}
+            >
+              لوحة التحكم
+            </button>
+          )}
+
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
             className={`md:hidden p-2 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center ${
@@ -165,16 +217,53 @@ export default function Navbar({ onStartEval, onAdminClick, isStatic = false }: 
                   {item.label}
                 </button>
               ))}
-              <button
-                onClick={() => { setMobileOpen(false); onAdminClick(); }}
-                className={`w-full text-right px-4 py-3 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
-                  isStatic
-                    ? 'text-white/50 hover:text-white hover:bg-white/10'
-                    : 'text-navy/50 hover:text-navy hover:bg-navy/5'
-                }`}
-              >
-                لوحة التحكم
-              </button>
+
+              {userRole === 'visitor' && (
+                <button
+                  onClick={() => { setMobileOpen(false); navigate('/login'); }}
+                  className={`w-full text-right px-4 py-3 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
+                    isStatic
+                      ? 'text-white/50 hover:text-white hover:bg-white/10'
+                      : 'text-navy/50 hover:text-navy hover:bg-navy/5'
+                  }`}
+                >
+                  دخول
+                </button>
+              )}
+
+              {userRole === 'judge' && (
+                <>
+                  <button
+                    onClick={() => { setMobileOpen(false); navigate('/judge'); }}
+                    className={`w-full text-right px-4 py-3 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
+                      isStatic
+                        ? 'text-white/70 hover:text-white hover:bg-white/10'
+                        : 'text-navy/70 hover:text-navy hover:bg-navy/5'
+                    }`}
+                  >
+                    تقييماتي
+                  </button>
+                  <button
+                    onClick={() => { setMobileOpen(false); navigate('/evaluation'); }}
+                    className="w-full text-right px-4 py-3 rounded-xl text-sm font-bold bg-gold text-navy min-h-[44px]"
+                  >
+                    ابدأ التقييم
+                  </button>
+                </>
+              )}
+
+              {userRole === 'admin' && (
+                <button
+                  onClick={() => { setMobileOpen(false); navigate('/admin'); }}
+                  className={`w-full text-right px-4 py-3 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
+                    isStatic
+                      ? 'text-white/50 hover:text-white hover:bg-white/10'
+                      : 'text-navy/50 hover:text-navy hover:bg-navy/5'
+                  }`}
+                >
+                  لوحة التحكم
+                </button>
+              )}
             </div>
           </motion.div>
         )}

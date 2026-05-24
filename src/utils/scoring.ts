@@ -86,6 +86,7 @@ export async function saveSubmission(submission: Submission): Promise<void> {
 
   // حفظ على Supabase
   try {
+    const sub = submission as any;
     const { error } = await supabase.from('submissions').insert({
       id: submission.id,
       date: submission.date,
@@ -100,6 +101,9 @@ export async function saveSubmission(submission: Submission): Promise<void> {
       decision: submission.results.decision,
       data: submission.data,
       results: submission.results,
+      project_number: sub.projectNumber ?? (submission.data as any).projectNumber ?? null,
+      judge_id: sub.judgeId ?? null,
+      judge_name: sub.judgeName ?? null,
     });
     if (error) console.error('Supabase error:', error.message);
   } catch (e) {
@@ -131,4 +135,28 @@ function getSubmissionsLocal(): Submission[] {
   try {
     return JSON.parse(localStorage.getItem('innopark_submissions') ?? '[]');
   } catch { return []; }
+}
+
+export async function updateSubmission(id: string, submission: Submission): Promise<void> {
+  try {
+    const sub = submission as any;
+    const { error } = await supabase.from('submissions').update({
+      date: submission.date,
+      project_name: submission.data.projectInfo.projectName,
+      applicant_name: submission.data.projectInfo.applicantName,
+      email: submission.data.projectInfo.email,
+      department: submission.data.projectInfo.department,
+      description: submission.data.projectInfo.description,
+      final_score: submission.results.finalScore,
+      classification: submission.results.classification,
+      classification_en: submission.results.classificationEn,
+      decision: submission.results.decision,
+      data: submission.data,
+      results: submission.results,
+      project_number: sub.projectNumber ?? (submission.data as any).projectNumber ?? null,
+    }).eq('id', id);
+    if (error) console.error('Supabase update error:', error.message);
+  } catch (e) {
+    console.error('Supabase update failed:', e);
+  }
 }
