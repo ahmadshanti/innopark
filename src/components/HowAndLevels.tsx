@@ -87,10 +87,10 @@ export default function HowAndLevels({ onApply }: HowAndLevelsProps) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all duration-300"
+                className="level-card border border-white/10 rounded-2xl p-6 hover:border-white/25"
               >
                 <div
-                  className="font-grotesk text-xs font-bold mb-4 px-3 py-1.5 rounded-full inline-block"
+                  className="level-badge font-grotesk text-xs font-bold mb-4 px-3 py-1.5 rounded-full inline-block"
                   style={{ background: l.bg, color: l.color }}
                 >
                   {l.range}
@@ -103,7 +103,7 @@ export default function HowAndLevels({ onApply }: HowAndLevelsProps) {
                     whileInView={{ width: `${l.bar}%` }}
                     viewport={{ once: true }}
                     transition={{ delay: i * 0.1 + 0.3, duration: 0.8, ease: 'easeOut' }}
-                    className="h-full rounded-full"
+                    className="level-bar-fill h-full rounded-full"
                     style={{ background: l.color }}
                   />
                 </div>

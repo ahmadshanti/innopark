@@ -9,6 +9,7 @@ import { loadProjectWithReview, saveReview, type ProjectWithReview } from '../li
 import StarRating from '../components/StarRating';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import ProjectFiles from '../components/ProjectFiles';
 
 interface EvaluationPageProps {
   onComplete: (submission: Submission) => void;
@@ -307,6 +308,10 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
                       </div>
                     </div>
                   )}
+                  <div className="col-span-2">
+                    <div className="text-xs text-navy/40 mb-2">الملفات المرفقة</div>
+                    <ProjectFiles projectId={project.id} />
+                  </div>
                 </div>
               </div>
             )}

@@ -45,6 +45,23 @@ export interface ProjectMember {
   position: number;
 }
 
+export interface ProjectFile {
+  id: string;
+  project_id: string;
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  mime_type: string | null;
+  created_at: string;
+}
+
+export interface AttachProjectFileInput {
+  file_name: string;
+  file_path: string;
+  file_size: number;
+  mime_type?: string;
+}
+
 export interface Dimension {
   id: string;
   key: string;

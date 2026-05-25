@@ -1,9 +1,14 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import { supabase } from '../lib/supabase';
-import type { ProjectType, SubmitProjectMemberInput, SubmitProjectResult } from '../types/db';
+import type {
+  AttachProjectFileInput,
+  ProjectType,
+  SubmitProjectMemberInput,
+  SubmitProjectResult,
+} from '../types/db';
 
 interface TeamMember {
   full_name: string;
@@ -16,6 +21,36 @@ const emptyMember = (): TeamMember => ({ full_name: '', email: '', role: '' });
 const EMAIL_RE = /^[^@\s]+@(stu\.)?najah\.edu$/i;
 const MOBILE_RE = /^[0-9+\-\s]{7,}$/;
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_MIME = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/octet-stream',
+]);
+const ALLOWED_EXT = /\.(pdf|docx?|png|jpe?g|webp|gif|zip)$/i;
+const FILE_ACCEPT = '.pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.gif,.zip';
+
+function isAcceptedFile(file: File): boolean {
+  return ALLOWED_MIME.has(file.type) || ALLOWED_EXT.test(file.name);
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function sanitizeFileName(name: string): string {
+  return name.replace(/[^\w.\-]+/g, '_').slice(0, 120);
+}
+
 export default function ApplyProjectPage() {
   const nav = useNavigate();
 
@@ -27,10 +62,28 @@ export default function ApplyProjectPage() {
   const [department, setDepartment] = useState('');
   const [description, setDescription] = useState('');
   const [members, setMembers] = useState<TeamMember[]>([emptyMember()]);
+  const [files, setFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<SubmitProjectResult | null>(null);
+
+  function addFiles(incoming: FileList | File[]) {
+    const next: File[] = [...files];
+    const rejected: string[] = [];
+    for (const f of Array.from(incoming)) {
+      if (!isAcceptedFile(f)) { rejected.push(`نوع غير مدعوم: ${f.name}`); continue; }
+      if (f.size > MAX_FILE_SIZE) { rejected.push(`الملف ${f.name} أكبر من 5MB`); continue; }
+      if (next.some(x => x.name === f.name && x.size === f.size)) continue;
+      next.push(f);
+    }
+    setFiles(next);
+    if (rejected.length) setErrors(rejected);
+  }
+  function removeFile(i: number) {
+    setFiles(prev => prev.filter((_, idx) => idx !== i));
+  }
 
   function updateMember(i: number, patch: Partial<TeamMember>) {
     setMembers(prev => prev.map((m, idx) => idx === i ? { ...m, ...patch } : m));
@@ -88,9 +141,8 @@ export default function ApplyProjectPage() {
       p_members:        payloadMembers,
     });
 
-    setSubmitting(false);
-
     if (error) {
+      setSubmitting(false);
       setErrors([
         error.message.includes('najah')
           ? 'البريد الإلكتروني يجب أن ينتهي بـ @najah.edu أو @stu.najah.edu'
@@ -98,7 +150,54 @@ export default function ApplyProjectPage() {
       ]);
       return;
     }
-    setSuccess(data as SubmitProjectResult);
+
+    const result = data as SubmitProjectResult;
+
+    if (files.length > 0) {
+      const uploaded: AttachProjectFileInput[] = [];
+      const uploadErrors: string[] = [];
+
+      for (const file of files) {
+        const safeName = `${Date.now()}_${sanitizeFileName(file.name)}`;
+        const path = `${result.id}/${safeName}`;
+        const { error: upErr } = await supabase
+          .storage
+          .from('project-files')
+          .upload(path, file, { contentType: file.type || undefined, upsert: false });
+
+        if (upErr) {
+          uploadErrors.push(`فشل رفع ${file.name}`);
+          continue;
+        }
+        uploaded.push({
+          file_name: file.name,
+          file_path: path,
+          file_size: file.size,
+          mime_type: file.type || undefined,
+        });
+      }
+
+      if (uploaded.length > 0) {
+        const { error: attachErr } = await supabase.rpc('attach_project_files', {
+          p_project_id: result.id,
+          p_files:      uploaded,
+        });
+        if (attachErr) uploadErrors.push('تعذّر ربط الملفات بالمشروع');
+      }
+
+      if (uploadErrors.length > 0) {
+        setSubmitting(false);
+        setErrors([
+          'تم استلام طلبك ولكن حدثت مشكلة في بعض الملفات:',
+          ...uploadErrors,
+        ]);
+        setSuccess(result);
+        return;
+      }
+    }
+
+    setSubmitting(false);
+    setSuccess(result);
   }
 
   if (success) {
@@ -236,6 +335,73 @@ export default function ApplyProjectPage() {
               className={`${inputClass} resize-none`}
             />
           </Field>
+
+          {/* الملفات المرفقة */}
+          <div className="pt-2 border-t border-navy/8">
+            <div className="flex items-center justify-between mb-2 mt-5">
+              <div>
+                <div className="text-sm font-bold text-navy">الملفات المرفقة</div>
+                <div className="text-xs text-navy/50">
+                  اختياري — PDF / Word / صور / ZIP، الحد الأقصى 5MB لكل ملف
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="text-xs font-bold text-navy bg-gold/20 hover:bg-gold/30 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                + إضافة ملف
+              </button>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={FILE_ACCEPT}
+              className="hidden"
+              onChange={e => {
+                if (e.target.files) addFiles(e.target.files);
+                e.target.value = '';
+              }}
+            />
+
+            <div
+              onDragOver={e => { e.preventDefault(); }}
+              onDrop={e => {
+                e.preventDefault();
+                if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
+              }}
+              onClick={() => fileInputRef.current?.click()}
+              className="cursor-pointer border-2 border-dashed border-navy/15 hover:border-navy/40 bg-cream/40 rounded-xl px-4 py-6 text-center text-sm text-navy/55 transition-colors"
+            >
+              اسحب الملفات هنا أو اضغط للاختيار
+            </div>
+
+            {files.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {files.map((f, i) => (
+                  <div
+                    key={`${f.name}-${i}`}
+                    className="flex items-center justify-between bg-cream/50 border border-navy/8 rounded-xl px-4 py-2.5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-bold text-navy truncate">{f.name}</div>
+                      <div className="text-xs text-navy/50">{formatSize(f.size)}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="text-navy/40 hover:text-red-500 hover:bg-red-50 w-8 h-8 rounded-lg transition-colors text-lg"
+                      aria-label="حذف"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* فريق المشروع */}
           <AnimatePresence initial={false}>

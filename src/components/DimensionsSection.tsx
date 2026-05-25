@@ -53,7 +53,7 @@ export default function DimensionsSection() {
           </motion.p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 border border-navy/10 rounded-2xl overflow-hidden divide-y divide-navy/10 sm:divide-y-0 sm:divide-x sm:divide-x-reverse">
+        <div className="dim-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 rounded-2xl">
           {dims.map((dim, i) => (
             <motion.div
               key={dim.num}
@@ -61,7 +61,7 @@ export default function DimensionsSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.08 }}
-              className="dim-card group p-6 cursor-default"
+              className="dim-card group p-6 cursor-default rounded-2xl"
             >
               {/* الرقم — بيتحكم فيه CSS مباشرة عبر .dim-card:hover .dim-num */}
               <div className="dim-num font-grotesk text-5xl font-extrabold leading-none mb-5 transition-colors duration-300">

@@ -51,18 +51,6 @@ export default function Hero({ onApply }: HeroProps) {
 
         {/* Right col — Text */}
         <div className="order-2 md:order-1">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.6 }}
-            className="inline-flex items-center gap-2 border border-gold/40 rounded px-4 py-1.5 mb-8"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-gold pulse-dot" />
-            <span className="text-gold text-xs font-bold tracking-widest uppercase">
-              INNOPARK — An-Najah Innovation Park
-            </span>
-          </motion.div>
-
           <div className="mb-6 leading-none">
             <motion.div
               initial={{ opacity: 0, x: 40 }}

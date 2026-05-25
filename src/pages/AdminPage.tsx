@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/use-auth';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import ProjectFiles from '../components/ProjectFiles';
 import CriteriaAdmin from './CriteriaAdmin';
 import type { Profile, Project, ProjectMember, ProjectStatus, UserStatus } from '../types/db';
 
@@ -728,7 +729,7 @@ export default function AdminPage() {
                                 disabled={acting}
                                 className="text-xs text-navy/60 hover:text-navy font-bold border border-navy/15 hover:border-navy/30 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                               >
-                                إعادة فتح
+                                تعليق
                               </button>
                             )}
                           </div>
@@ -755,7 +756,7 @@ export default function AdminPage() {
                                     رقم الجوال
                                   </div>
                                   <div
-                                    className="text-sm text-navy"
+                                    className="text-sm text-navy text-right"
                                     dir="ltr"
                                     style={{ fontFamily: "'Space Grotesk',sans-serif" }}
                                   >
@@ -808,6 +809,12 @@ export default function AdminPage() {
                                     </div>
                                   </div>
                                 )}
+                                <div className="md:col-span-3">
+                                  <div className="text-[10px] font-bold text-navy/40 uppercase tracking-widest mb-2">
+                                    الملفات المرفقة
+                                  </div>
+                                  <ProjectFiles projectId={project.id} />
+                                </div>
                                 {project.status === 'rejected' && project.rejected_reason && (
                                   <div className="md:col-span-3">
                                     <div className="text-[10px] font-bold text-red-700 uppercase tracking-widest mb-1">

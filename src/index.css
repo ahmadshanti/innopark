@@ -40,15 +40,66 @@ body {
 }
 .nav-link:hover::after { width: 100%; }
 
-/* Dim card */
-.dim-num { color: rgba(27,58,122,0.08); }
-.dim-card { transition: all 0.3s cubic-bezier(0.4,0,0.2,1); }
-.dim-card:hover { background: #1B3A7A; }
-.dim-card:hover .dim-num { color: rgba(245,166,35,0.45) !important; }
+/* Dim grid + cards
+   - Easing: cubic-bezier(0.16, 1, 0.3, 1) — expo-out, gentle premium glide
+   - Layered shadow for natural depth (close shadow + diffused ambient)
+   - Inner elements stagger slightly via transition-delay
+*/
+.dim-grid { gap: 0; }
+.dim-grid > .dim-card {
+  border: 1px solid rgba(27,58,122,0.08);
+  margin: -0.5px;
+  background: #FAFAF8;
+}
+.dim-num {
+  color: rgba(27,58,122,0.08);
+  transition: color 0.55s cubic-bezier(0.16,1,0.3,1) 0.04s,
+              transform 0.55s cubic-bezier(0.16,1,0.3,1) 0.04s;
+}
+.dim-card {
+  position: relative;
+  transition: background 0.55s cubic-bezier(0.16,1,0.3,1),
+              transform 0.55s cubic-bezier(0.16,1,0.3,1),
+              box-shadow 0.55s cubic-bezier(0.16,1,0.3,1),
+              border-color 0.55s cubic-bezier(0.16,1,0.3,1);
+  will-change: transform;
+}
+.dim-card:hover {
+  background: #1B3A7A;
+  border-color: #1B3A7A;
+  transform: translateY(-6px);
+  box-shadow:
+    0 2px 4px -1px rgba(27,58,122,0.08),
+    0 12px 24px -10px rgba(27,58,122,0.22),
+    0 24px 48px -16px rgba(27,58,122,0.18);
+  z-index: 2;
+}
+.dim-card:hover .dim-num {
+  color: rgba(245,166,35,0.5) !important;
+  transform: translateX(-6px);
+}
 .dim-card:hover .dim-name { color: #fff; }
-.dim-card:hover .dim-desc { color: rgba(255,255,255,0.45); }
-.dim-card:hover .dim-badge { background: rgba(245,166,35,0.2); color: #F5A623; }
-.dim-card:hover .dim-icon { background: rgba(245,166,35,0.15); color: #F5A623; }
+.dim-card:hover .dim-desc { color: rgba(255,255,255,0.5); }
+.dim-card:hover .dim-badge {
+  background: rgba(245,166,35,0.16);
+  color: #F5A623;
+}
+.dim-card:hover .dim-icon {
+  background: rgba(245,166,35,0.14);
+  color: #F5A623;
+  transform: translateY(-3px);
+}
+.dim-icon {
+  transition: background 0.55s cubic-bezier(0.16,1,0.3,1) 0.06s,
+              color 0.55s cubic-bezier(0.16,1,0.3,1) 0.06s,
+              transform 0.55s cubic-bezier(0.16,1,0.3,1) 0.06s !important;
+}
+.dim-badge {
+  transition: background 0.55s cubic-bezier(0.16,1,0.3,1) 0.1s,
+              color 0.55s cubic-bezier(0.16,1,0.3,1) 0.1s !important;
+}
+.dim-name { transition: color 0.55s cubic-bezier(0.16,1,0.3,1) 0.05s !important; }
+.dim-desc { transition: color 0.55s cubic-bezier(0.16,1,0.3,1) 0.07s !important; }
 
 @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes spin-reverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
@@ -87,8 +138,63 @@ body {
 }
 
 /* How card */
-.how-num { color: rgba(27,58,122,0.07); }
-.how-card:hover .how-num { color: rgba(245,166,35,0.35) !important; }
+.how-num {
+  color: rgba(27,58,122,0.07);
+  transition: color 0.55s cubic-bezier(0.16,1,0.3,1) 0.04s,
+              transform 0.55s cubic-bezier(0.16,1,0.3,1) 0.04s;
+}
+.how-card {
+  transition: background-color 0.55s cubic-bezier(0.16,1,0.3,1),
+              transform 0.55s cubic-bezier(0.16,1,0.3,1),
+              box-shadow 0.55s cubic-bezier(0.16,1,0.3,1) !important;
+  will-change: transform;
+}
+.how-card:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 2px 4px -1px rgba(27,58,122,0.08),
+    0 14px 28px -12px rgba(27,58,122,0.25),
+    0 28px 56px -18px rgba(27,58,122,0.2);
+  z-index: 2;
+}
+.how-card:hover .how-num {
+  color: rgba(245,166,35,0.4) !important;
+  transform: translateX(-6px);
+}
+.how-card .how-icon {
+  transition: background 0.55s cubic-bezier(0.16,1,0.3,1) 0.06s,
+              transform 0.55s cubic-bezier(0.16,1,0.3,1) 0.06s !important;
+}
+.how-card:hover .how-icon { transform: translateY(-3px); }
+.how-card .how-title {
+  transition: color 0.55s cubic-bezier(0.16,1,0.3,1) 0.05s !important;
+}
+.how-card .how-desc {
+  transition: color 0.55s cubic-bezier(0.16,1,0.3,1) 0.07s !important;
+}
+
+/* Maturity level card */
+.level-card {
+  position: relative;
+  transition: transform 0.55s cubic-bezier(0.16,1,0.3,1),
+              border-color 0.55s cubic-bezier(0.16,1,0.3,1),
+              box-shadow 0.55s cubic-bezier(0.16,1,0.3,1),
+              background-color 0.55s cubic-bezier(0.16,1,0.3,1);
+  will-change: transform;
+}
+.level-card:hover {
+  transform: translateY(-5px);
+  background-color: rgba(255,255,255,0.02);
+  border-color: rgba(255,255,255,0.22);
+  box-shadow:
+    0 2px 4px -1px rgba(0,0,0,0.2),
+    0 16px 32px -12px rgba(0,0,0,0.4),
+    0 32px 64px -16px rgba(0,0,0,0.25);
+}
+.level-card .level-badge {
+  transition: transform 0.55s cubic-bezier(0.16,1,0.3,1) 0.06s;
+}
+.level-card:hover .level-badge { transform: translateY(-2px); }
 
 /* Slider custom style */
 .slider-input::-webkit-slider-thumb {
