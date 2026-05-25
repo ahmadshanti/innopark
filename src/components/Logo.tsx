@@ -15,7 +15,7 @@ export default function Logo({ size = 'md' }: LogoProps) {
   return (
     <div className="flex items-center gap-2">
       <img
-        src="/logo.png"
+        src="/logo.webp"
         alt="INNOPARK"
         width={s}
         height={s}

@@ -1,109 +1,92 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/use-auth';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
+import type { JudgeProject } from '../types/db';
 
-interface JudgeInfo {
-  id: string;
-  full_name: string;
-  email: string;
-  status: string;
-}
+type LoadState = 'loading' | 'ready' | 'error';
 
-interface JudgeSubmission {
-  id: string;
-  date: string;
-  projectNumber: string | null;
-  projectName: string | null;
-  finalScore: number | null;
-  classification: string | null;
-  // full data for editing
-  data: any;
-  results: any;
-}
-
-const LEVEL_COLORS: Record<string, { bg: string; text: string }> = {
-  'غير جاهز':       { bg: '#FCEBEB', text: '#A32D2D' },
-  'مبكر جداً':      { bg: '#FAEEDA', text: '#854F0B' },
-  'جاهز للاحتضان': { bg: '#E6F1FB', text: '#185FA5' },
-  'متقدم':          { bg: '#E1F5EE', text: '#0F6E56' },
-  'عالي النضج':     { bg: '#EEEDFE', text: '#534AB7' },
+const TYPE_LABEL: Record<JudgeProject['project_type'], string> = {
+  individual: 'فردي',
+  team: 'فريق',
 };
 
 export default function JudgeDashboard() {
   const nav = useNavigate();
-  const [judge, setJudge] = useState<JudgeInfo | null>(null);
-  const [submissions, setSubmissions] = useState<JudgeSubmission[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { session, profile, signOut } = useAuth();
+
+  const [projects, setProjects] = useState<JudgeProject[]>([]);
+  const [state, setState] = useState<LoadState>('loading');
+  const [errorMsg, setErrorMsg] = useState<string>('');
+  const [query, setQuery] = useState('');
+
+  const judgeName = profile?.full_name?.trim() || session?.user.email || '';
+  const judgeEmail = session?.user.email ?? '';
 
   useEffect(() => {
-    async function init() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { nav('/login'); return; }
+    if (!session) return;
+    let cancelled = false;
 
-      if (session.user.email === 'admin@innopark.ps') { nav('/admin'); return; }
+    (async () => {
+      setState('loading');
+      const { data, error } = await supabase
+        .from('judge_projects')
+        .select(
+          'id, project_number, project_name, project_type, applicant_name, department, description, created_at, reviewed_by_me',
+        )
+        .order('project_number', { ascending: true });
 
-      const { data: judgeData } = await supabase
-        .from('judges')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-
-      if (!judgeData || judgeData.status !== 'approved') {
-        await supabase.auth.signOut();
-        nav('/login');
+      if (cancelled) return;
+      if (error) {
+        setErrorMsg(error.message);
+        setState('error');
         return;
       }
+      setProjects((data ?? []) as JudgeProject[]);
+      setState('ready');
+    })();
 
-      setJudge(judgeData);
+    return () => { cancelled = true; };
+  }, [session]);
 
-      const { data: subs } = await supabase
-        .from('submissions')
-        .select('*')
-        .eq('judge_id', session.user.id)
-        .order('created_at', { ascending: false });
+  const reviewedCount = useMemo(
+    () => projects.filter(p => p.reviewed_by_me).length,
+    [projects],
+  );
 
-      if (subs) {
-        setSubmissions(subs.map((row: any) => ({
-          id: row.id,
-          date: row.date,
-          projectNumber: row.project_number ?? (row.data as any)?.projectNumber ?? null,
-          projectName: row.project_name ?? row.data?.projectInfo?.projectName ?? null,
-          finalScore: row.final_score ?? row.results?.finalScore ?? null,
-          classification: row.classification ?? row.results?.classification ?? null,
-          data: row.data,
-          results: row.results,
-        })));
-      }
-      setLoading(false);
-    }
-    init();
-  }, []);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return projects;
+    return projects.filter(p =>
+      p.project_name.toLowerCase().includes(q) ||
+      String(p.project_number).includes(q) ||
+      p.applicant_name.toLowerCase().includes(q),
+    );
+  }, [projects, query]);
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    await signOut();
     nav('/');
   }
 
-  function handleEdit(sub: JudgeSubmission) {
+  function openProject(p: JudgeProject) {
     nav('/evaluation', {
       state: {
-        editSubmission: {
-          id: sub.id,
-          data: sub.data,
-          results: sub.results,
+        project: {
+          id: p.id,
+          projectNumber: String(p.project_number),
+          projectName: p.project_name,
+          projectType: p.project_type,
+          applicantName: p.applicant_name,
+          department: p.department ?? '',
+          description: p.description ?? '',
         },
+        editing: p.reviewed_by_me,
       },
     });
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <div className="text-navy/40">جارٍ التحميل...</div>
-      </div>
-    );
   }
 
   return (
@@ -115,119 +98,144 @@ export default function JudgeDashboard() {
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <div className="text-white/40 text-sm mb-1">لوحة الحكّام</div>
-            <h1 className="text-2xl md:text-3xl font-black text-white">مرحباً، {judge?.full_name}</h1>
-            <div className="text-white/40 text-sm mt-1">{judge?.email}</div>
+            <h1 className="text-2xl md:text-3xl font-black text-white">مرحباً، {judgeName}</h1>
+            <div className="text-white/40 text-sm mt-1">{judgeEmail}</div>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-center bg-white/8 rounded-xl p-4">
               <div className="text-3xl font-black text-gold" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-                {submissions.length}
+                {reviewedCount}
+                <span className="text-white/30 text-lg"> / {projects.length}</span>
               </div>
-              <div className="text-white/40 text-xs mt-1">تقييم أجريته</div>
+              <div className="text-white/40 text-xs mt-1">مشاريع قُيِّمت</div>
             </div>
-            <div className="flex flex-col gap-2">
-              <motion.button
-                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                onClick={() => nav('/evaluation')}
-                className="bg-gold text-navy font-black text-sm px-5 py-2.5 rounded-lg"
-              >
-                + تقييم جديد
-              </motion.button>
-              <button
-                onClick={handleLogout}
-                className="text-white/40 hover:text-red-400 text-sm transition-colors text-center"
-              >
-                🚪 تسجيل الخروج
-              </button>
-            </div>
+            <button
+              onClick={handleLogout}
+              className="text-white/40 hover:text-red-400 text-sm transition-colors"
+            >
+              🚪 خروج
+            </button>
           </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 max-w-5xl mx-auto w-full px-4 md:px-8 py-8">
-        <h2 className="text-xl font-black text-navy mb-6">تقييماتي السابقة</h2>
-
-        {submissions.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-2xl border border-navy/8">
-            <div className="text-5xl mb-4">📋</div>
-            <div className="text-navy/40 font-medium mb-4">لم تُجرِ أي تقييم بعد</div>
-            <button
-              onClick={() => nav('/evaluation')}
-              className="bg-gold text-navy font-black px-6 py-3 rounded-xl text-sm"
-            >
-              ابدأ أول تقييم
-            </button>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+          <div>
+            <h2 className="text-xl font-black text-navy">المشاريع المعتمدة للتقييم</h2>
+            <p className="text-navy/50 text-sm mt-1">اختر مشروعاً لبدء التقييم. لا يمكن تقييم المشروع نفسه أكثر من مرة.</p>
           </div>
-        ) : (
+          <div className="relative w-full md:w-72">
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="ابحث باسم المشروع أو رقمه..."
+              className="w-full bg-white border border-navy/15 rounded-xl pr-10 pl-4 py-2.5 text-sm text-navy placeholder:text-navy/30 focus:outline-none focus:border-navy focus:ring-2 focus:ring-navy/10 transition-all"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-navy/30 text-sm">🔍</span>
+          </div>
+        </div>
+
+        {state === 'loading' && (
+          <div className="bg-white rounded-2xl border border-navy/8 py-20 text-center text-navy/40">
+            جارٍ تحميل المشاريع...
+          </div>
+        )}
+
+        {state === 'error' && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+            <div className="text-2xl mb-2">⚠️</div>
+            <div className="text-red-700 font-bold mb-1">تعذّر تحميل المشاريع</div>
+            <div className="text-red-700/70 text-sm">{errorMsg}</div>
+          </div>
+        )}
+
+        {state === 'ready' && projects.length === 0 && (
+          <div className="text-center py-20 bg-white rounded-2xl border border-navy/8">
+            <div className="text-5xl mb-4">📭</div>
+            <div className="text-navy/40 font-medium">لا توجد مشاريع معتمدة حالياً</div>
+            <div className="text-navy/30 text-sm mt-2">سيتم إشعارك عندما تعتمد الإدارة مشاريع جديدة.</div>
+          </div>
+        )}
+
+        {state === 'ready' && projects.length > 0 && filtered.length === 0 && (
+          <div className="text-center py-16 bg-white rounded-2xl border border-navy/8">
+            <div className="text-4xl mb-3">🔎</div>
+            <div className="text-navy/50 font-medium">لا توجد نتائج مطابقة لـ «{query}»</div>
+          </div>
+        )}
+
+        {state === 'ready' && filtered.length > 0 && (
           <div className="bg-white rounded-2xl border border-navy/8 overflow-hidden">
-            <div className="hidden md:grid grid-cols-6 px-6 py-3 bg-navy/3 border-b border-navy/8 text-xs font-bold text-navy/40 uppercase tracking-wider">
-              <div>رقم المشروع</div>
-              <div className="col-span-2">اسم المشروع</div>
-              <div>الدرجة</div>
-              <div>التصنيف</div>
-              <div>تعديل</div>
+            <div className="hidden md:grid grid-cols-12 px-6 py-3 bg-navy/3 border-b border-navy/8 text-xs font-bold text-navy/40 uppercase tracking-wider">
+              <div className="col-span-1">رقم</div>
+              <div className="col-span-5">المشروع</div>
+              <div className="col-span-2">النوع</div>
+              <div className="col-span-2">الحالة</div>
+              <div className="col-span-2 text-left">إجراء</div>
             </div>
             <div className="divide-y divide-navy/5">
-              {submissions.map((sub, i) => {
-                const c = LEVEL_COLORS[sub.classification ?? ''] ?? { bg: '#f1f5f9', text: '#64748b' };
-                return (
-                  <motion.div
-                    key={sub.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="px-4 md:px-6 py-4 md:grid md:grid-cols-6 md:items-center space-y-2 md:space-y-0 hover:bg-cream transition-colors"
+              {filtered.map((p, i) => (
+                <motion.div
+                  key={p.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i * 0.03, 0.3) }}
+                  className="px-4 md:px-6 py-4 md:grid md:grid-cols-12 md:items-center md:gap-4 space-y-2 md:space-y-0 hover:bg-cream transition-colors"
+                >
+                  <div
+                    className="md:col-span-1 font-bold text-gold text-sm"
+                    style={{ fontFamily: "'Space Grotesk',sans-serif" }}
                   >
-                    <div className="font-bold text-gold text-sm" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-                      {sub.projectNumber || '—'}
+                    #{p.project_number}
+                  </div>
+                  <div className="md:col-span-5">
+                    <div className="font-bold text-navy text-sm">{p.project_name}</div>
+                    <div className="text-xs text-navy/50 mt-0.5">
+                      {p.applicant_name}
+                      {p.department ? <> · <span className="text-navy/40">{p.department}</span></> : null}
                     </div>
-                    <div className="md:col-span-2">
-                      <div className="font-bold text-navy text-sm">{sub.projectName || '—'}</div>
-                      <div className="text-xs text-navy/40 mt-0.5">{sub.date}</div>
-                    </div>
-                    <div className="font-black text-navy text-xl" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-                      {sub.finalScore ?? '—'}
-                    </div>
-                    <div>
-                      {sub.classification ? (
-                        <span
-                          className="text-xs font-bold px-2.5 py-1 rounded-full"
-                          style={{ background: c.bg, color: c.text }}
-                        >
-                          {sub.classification}
-                        </span>
-                      ) : '—'}
-                    </div>
-                    <div>
-                      <motion.button
-                        whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                        onClick={() => handleEdit(sub)}
-                        className="text-xs bg-navy text-white font-bold px-4 py-1.5 rounded-lg hover:bg-navy/80 transition-colors"
-                      >
-                        ✏️ تعديل
-                      </motion.button>
-                    </div>
-                  </motion.div>
-                );
-              })}
+                  </div>
+                  <div className="md:col-span-2">
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-navy/6 text-navy/70">
+                      {TYPE_LABEL[p.project_type]}
+                    </span>
+                  </div>
+                  <div className="md:col-span-2">
+                    {p.reviewed_by_me ? (
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#E1F5EE] text-[#0F6E56]">
+                        ✓ قُيِّم
+                      </span>
+                    ) : (
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#FAEEDA] text-[#854F0B]">
+                        قيد التقييم
+                      </span>
+                    )}
+                  </div>
+                  <div className="md:col-span-2 md:text-left">
+                    <motion.button
+                      whileHover={{ scale: 1.04 }}
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => openProject(p)}
+                      className={`text-xs font-bold px-4 py-2 rounded-lg transition-colors ${
+                        p.reviewed_by_me
+                          ? 'bg-navy/8 text-navy hover:bg-navy/15'
+                          : 'bg-gold text-navy hover:bg-gold-dark'
+                      }`}
+                    >
+                      {p.reviewed_by_me ? '✏️ تعديل التقييم' : 'بدء التقييم ←'}
+                    </motion.button>
+                  </div>
+                </motion.div>
+              ))}
             </div>
           </div>
         )}
       </div>
 
-      <footer className="bg-[#0f1e47] py-6 px-8 flex-shrink-0">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="INNOPARK" width={36} height={36} style={{ objectFit: 'contain' }} />
-            <div>
-              <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 800, color: '#F5A623', fontSize: '13px', letterSpacing: '2px' }}>INNOPARK</div>
-              <div style={{ fontFamily: "'Tajawal',sans-serif", color: 'rgba(255,255,255,0.25)', fontSize: '10px' }}>حديقة النجاح للابتكار</div>
-            </div>
-          </div>
-          <div className="text-white/20 text-xs">© 2026 جميع الحقوق محفوظة</div>
-        </div>
-      </footer>
+      <Footer containerClassName="max-w-5xl" className="py-6 px-8" />
     </div>
   );
 }

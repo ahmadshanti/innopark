@@ -8,14 +8,9 @@ export interface ProjectInfo {
 
 export type DimensionScores = Record<string, number>;
 
-export interface EvaluationData {
+export type EvaluationData = {
   projectInfo: ProjectInfo;
-  technology: DimensionScores;
-  market: DimensionScores;
-  businessModel: DimensionScores;
-  teamCapabilities: DimensionScores;
-  impact: DimensionScores;
-}
+} & Record<string, ProjectInfo | DimensionScores>;
 
 export interface DimensionResult {
   nameAr: string;

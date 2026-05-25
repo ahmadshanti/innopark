@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 
 interface HeroProps {
-  onStartEval: () => void;
+  onApply: () => void;
 }
 
 const stats = [
@@ -12,7 +12,7 @@ const stats = [
   { num: '5', unit: 'مستويات', sub: 'تصنيف احترافي' },
 ];
 
-export default function Hero({ onStartEval }: HeroProps) {
+export default function Hero({ onApply }: HeroProps) {
   const [spinning, setSpinning] = React.useState(false);
   return (
     <section className="relative min-h-screen bg-cream overflow-hidden flex flex-col">
@@ -111,10 +111,10 @@ export default function Hero({ onStartEval }: HeroProps) {
             <motion.button
               whileHover={{ scale: 1.04, y: -1 }}
               whileTap={{ scale: 0.97 }}
-              onClick={onStartEval}
+              onClick={onApply}
               className="bg-gold hover:bg-gold-dark text-navy font-black text-base md:text-lg px-6 md:px-8 py-3 md:py-4 rounded-xl transition-colors flex items-center gap-3 shadow-lg shadow-gold/20 min-h-[44px]"
             >
-              ابدأ التقييم الآن
+              قدّم مشروعك الآن
               <span className="text-navy/60 text-base">←</span>
             </motion.button>
             <button onClick={() => {
@@ -203,7 +203,7 @@ export default function Hero({ onStartEval }: HeroProps) {
               }}
             />
             <motion.img
-              src="/logo.png"
+              src="/logo.webp"
               alt="INNOPARK Logo"
               initial={{ opacity: 0, scale: 0.6, rotate: -8 }}
               animate={{ opacity: 1, scale: 1, rotate: 0 }}

@@ -20,14 +20,14 @@ export default function HomePage() {
     }
   }, [location]);
 
-  const goToEval = () => navigate('/evaluation');
+  const goToApply = () => navigate('/apply');
 
   return (
     <div className="min-h-screen">
       <Navbar />
-      <Hero onStartEval={goToEval} />
+      <Hero onApply={goToApply} />
       <DimensionsSection />
-      <HowAndLevels onStartEval={goToEval} />
+      <HowAndLevels onApply={goToApply} />
     </div>
   );
 }

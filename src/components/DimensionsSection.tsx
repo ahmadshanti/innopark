@@ -1,49 +1,25 @@
 import { motion } from 'framer-motion';
+import { useCriteria } from '../lib/criteria';
 
-const dims = [
-  {
-    num: '01',
-    icon: '⚙️',
-    name: 'التقنية',
-    weight: '25%',
-    criteria: ['وضوح الفكرة التقنية', 'مستوى الجاهزية TRL', 'إثبات الفكرة PoC', 'التعقيد التقني', 'قابلية التنفيذ'],
-    desc: 'قياس مستوى النضج التقني وجاهزية التكنولوجيا',
-  },
-  {
-    num: '02',
-    icon: '📈',
-    name: 'السوق',
-    weight: '25%',
-    criteria: ['وضوح المشكلة', 'فهم الزبون', 'حجم السوق', 'المنافسة', 'التحقق من السوق'],
-    desc: 'تقييم فهم السوق والفرصة التجارية',
-  },
-  {
-    num: '03',
-    icon: '🏢',
-    name: 'نموذج العمل',
-    weight: '20%',
-    criteria: ['نموذج الإيرادات', 'قابلية التوسع', 'هيكل التكاليف', 'القيمة المقترحة', 'النموذج التشغيلي'],
-    desc: 'تحليل قابلية المشروع للتحول إلى عمل تجاري ناجح',
-  },
-  {
-    num: '04',
-    icon: '👥',
-    name: 'قدرات الفريق',
-    weight: '20%',
-    criteria: ['الخبرة', 'تكامل الفريق', 'الالتزام', 'القدرة على التنفيذ', 'القيادة'],
-    desc: 'قياس كفاءة الفريق وقدرته على تنفيذ الرؤية',
-  },
-  {
-    num: '05',
-    icon: '🌍',
-    name: 'الأثر الاستراتيجي',
-    weight: '10%',
-    criteria: ['الأثر المجتمعي', 'الأثر الاقتصادي', 'الابتكار', 'التوافق مع الجامعة', 'الاستدامة'],
-    desc: 'تقييم الأثر الأشمل والتوافق مع الأولويات الاستراتيجية',
-  },
-];
+const DIM_META: Record<string, { icon: string; desc: string }> = {
+  technology:       { icon: '⚙️', desc: 'قياس مستوى النضج التقني وجاهزية التكنولوجيا' },
+  market:           { icon: '📈', desc: 'تقييم فهم السوق والفرصة التجارية' },
+  businessModel:    { icon: '🏢', desc: 'تحليل قابلية المشروع للتحول إلى عمل تجاري ناجح' },
+  teamCapabilities: { icon: '👥', desc: 'قياس كفاءة الفريق وقدرته على تنفيذ الرؤية' },
+  impact:           { icon: '🌍', desc: 'تقييم الأثر الأشمل والتوافق مع الأولويات الاستراتيجية' },
+};
 
 export default function DimensionsSection() {
+  const { dimensions } = useCriteria();
+  const dims = dimensions.map((d, i) => ({
+    num: String(i + 1).padStart(2, '0'),
+    icon: DIM_META[d.key]?.icon ?? '📊',
+    name: d.nameAr,
+    weight: `${d.weight}%`,
+    criteria: d.criteria,
+    desc: DIM_META[d.key]?.desc ?? '',
+  }));
+
   return (
     <section id="dimensions" className="py-24 bg-cream">
       <div className="max-w-7xl mx-auto px-4 md:px-8">

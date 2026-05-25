@@ -1,197 +1,199 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { EvaluationData, ProjectInfo, DimensionScores, Submission } from '../types';
-import { DIMENSIONS } from '../types';
-import { calculateResults, saveSubmission } from '../utils/scoring';
-import { supabase } from '../lib/supabase';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import type { EvaluationData, DimensionScores, Submission } from '../types';
+import { calculateResults } from '../utils/scoring';
+import { useAuth } from '../lib/use-auth';
+import { useCriteria } from '../lib/criteria';
+import { loadProjectWithReview, saveReview, type ProjectWithReview } from '../lib/reviews';
 import StarRating from '../components/StarRating';
 import Navbar from '../components/Navbar';
-import { useNavigate, useLocation } from 'react-router-dom';
+import Footer from '../components/Footer';
 
 interface EvaluationPageProps {
   onComplete: (submission: Submission) => void;
 }
 
-const STEPS = [
-  { id: 0, label: 'معلومات المشروع', icon: '📋', short: 'البيانات' },
-  { id: 1, label: 'التقنية', icon: '⚙️', weight: '25%', short: 'التقنية' },
-  { id: 2, label: 'السوق', icon: '📈', weight: '25%', short: 'السوق' },
-  { id: 3, label: 'نموذج العمل', icon: '🏢', weight: '20%', short: 'العمل' },
-  { id: 4, label: 'قدرات الفريق', icon: '👥', weight: '20%', short: 'الفريق' },
-  { id: 5, label: 'الأثر الاستراتيجي', icon: '🌍', weight: '10%', short: 'الأثر' },
-  { id: 6, label: 'المراجعة والإرسال', icon: '✅', short: 'المراجعة' },
-];
-
-const DIM_KEYS = ['technology', 'market', 'businessModel', 'teamCapabilities', 'impact'] as const;
-
-const emptyInfo: ProjectInfo = {
-  projectName: '', applicantName: '', email: '', department: '', description: '',
+const DIM_ICONS: Record<string, string> = {
+  technology: '⚙️',
+  market: '📈',
+  businessModel: '🏢',
+  teamCapabilities: '👥',
+  impact: '🌍',
 };
+const DIM_SHORT: Record<string, string> = {
+  technology: 'التقنية',
+  market: 'السوق',
+  businessModel: 'العمل',
+  teamCapabilities: 'الفريق',
+  impact: 'الأثر',
+};
+
+interface NavState { project?: { id: string } | null }
 
 export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
   const nav = useNavigate();
   const location = useLocation();
+  const { session, profile } = useAuth();
+  const { dimensions, loading: critLoading } = useCriteria();
 
-  const editSubmission = (location.state as any)?.editSubmission ?? null;
-  const editMode = !!editSubmission;
+  const projectId = (location.state as NavState | null)?.project?.id ?? null;
+  const judgeName = profile?.full_name?.trim() || session?.user.email || '';
 
-  const [authChecked, setAuthChecked] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [checkingProject, setCheckingProject] = useState(false);
+  const [ctx, setCtx] = useState<ProjectWithReview | null>(null);
+  const [ctxError, setCtxError] = useState<string>('');
+  const [ctxLoading, setCtxLoading] = useState(true);
+
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
   const [errors, setErrors] = useState<string[]>([]);
-  const [judgeId, setJudgeId] = useState<string | null>(null);
-  const [judgeName, setJudgeName] = useState<string>('');
+  const [submitting, setSubmitting] = useState(false);
+  const [scores, setScores] = useState<Record<string, DimensionScores>>({});
 
-  const [projectInfo, setProjectInfo] = useState<ProjectInfo>(() => {
-    if (editMode && editSubmission.data?.projectInfo) {
-      return {
-        ...editSubmission.data.projectInfo,
-        projectNumber: (editSubmission.data as any).projectNumber ?? '',
-      } as any;
-    }
-    return emptyInfo;
+  const DIM_KEYS = useMemo(() => dimensions.map((d) => d.key), [dimensions]);
+  const dimCount = DIM_KEYS.length;
+  const startContextLoad = useEffectEvent(() => {
+    setCtxLoading(true);
+    setCtxError('');
+  });
+  const finishContextLoad = useEffectEvent(() => {
+    setCtxLoading(false);
+  });
+  const applyContext = useEffectEvent((data: ProjectWithReview) => {
+    setCtx(data);
+  });
+  const failContextLoad = useEffectEvent((message: string) => {
+    setCtxError(message);
   });
 
-  const [scores, setScores] = useState<Record<string, DimensionScores>>(() => {
-    if (editMode && editSubmission.data) {
-      return {
-        technology: editSubmission.data.technology || {},
-        market: editSubmission.data.market || {},
-        businessModel: editSubmission.data.businessModel || {},
-        teamCapabilities: editSubmission.data.teamCapabilities || {},
-        impact: editSubmission.data.impact || {},
-      };
-    }
-    return { technology: {}, market: {}, businessModel: {}, teamCapabilities: {}, impact: {} };
-  });
-
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!data.session) { nav('/login'); return; }
-      if (data.session.user?.email === 'admin@innopark.ps') { nav('/admin'); return; }
-
-      setJudgeId(data.session.user.id);
-
-      const { data: j } = await supabase
-        .from('judges')
-        .select('full_name, status')
-        .eq('id', data.session.user.id)
-        .single();
-
-      if (!j || j.status !== 'approved') {
-        await supabase.auth.signOut();
-        nav('/login');
-        return;
-      }
-
-      setJudgeName(j.full_name);
-      setAuthChecked(true);
+  const STEPS = useMemo(() => {
+    const steps: { id: number; label: string; icon: string; short: string }[] = [
+      { id: 0, label: 'ملخص المشروع', icon: '📋', short: 'المشروع' },
+    ];
+    dimensions.forEach((d, i) => {
+      steps.push({
+        id: i + 1,
+        label: d.nameAr,
+        icon: DIM_ICONS[d.key] ?? '📊',
+        short: DIM_SHORT[d.key] ?? d.nameAr,
+      });
     });
-  }, []);
+    steps.push({ id: dimensions.length + 1, label: 'المراجعة والإرسال', icon: '✅', short: 'المراجعة' });
+    return steps;
+  }, [dimensions]);
 
+  // Fetch project + my review once per projectId — no per-step refetch.
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    (async () => {
+      startContextLoad();
+      try {
+        const data = await loadProjectWithReview(projectId);
+        if (!cancelled) applyContext(data);
+      } catch (e) {
+        if (!cancelled) failContextLoad(e instanceof Error ? e.message : 'تعذّر تحميل بيانات المشروع');
+      } finally {
+        if (!cancelled) finishContextLoad();
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+  const seededScores = useMemo(() => {
+    if (!ctx?.myReview || dimensions.length === 0) return {};
+    const idToName: Record<string, { key: string; name: string }> = {};
+    dimensions.forEach((d) =>
+      Object.entries(d.criteriaIds).forEach(([name, id]) => { idToName[id] = { key: d.key, name }; }),
+    );
+    const seeded: Record<string, DimensionScores> = {};
+    ctx.myReview.scores.forEach(({ criterion_id, score }) => {
+      const m = idToName[criterion_id];
+      if (!m) return;
+      seeded[m.key] = { ...(seeded[m.key] ?? {}), [m.name]: score };
+    });
+    return seeded;
+  }, [ctx, dimensions]);
+  const currentScores = Object.keys(scores).length > 0 ? scores : seededScores;
+
+  // ── derived ────────────────────────────────────────────────────────────
+  const editMode = !!ctx?.myReview;
   const dimKey = DIM_KEYS[step - 1];
-  const currentDim = step >= 1 && step <= 5 ? DIMENSIONS[dimKey] : null;
-  const progress = Math.round((step / (STEPS.length - 1)) * 100);
+  const currentDim = step >= 1 && step <= dimCount ? dimensions[step - 1] : null;
+  const progress = STEPS.length > 1 ? Math.round((step / (STEPS.length - 1)) * 100) : 0;
 
   function updateScore(key: string, criterion: string, val: number) {
-    setScores(prev => ({ ...prev, [key]: { ...prev[key], [criterion]: val } }));
+    setScores((prev) => {
+      const base = Object.keys(prev).length > 0 ? prev : currentScores;
+      return { ...base, [key]: { ...base[key], [criterion]: val } };
+    });
   }
 
   function validate(): boolean {
     const errs: string[] = [];
-    if (step === 0) {
-      if (!(projectInfo as any).projectNumber?.trim()) errs.push('رقم المشروع مطلوب');
-      if (!projectInfo.projectName.trim()) errs.push('اسم المشروع مطلوب');
-      if (!projectInfo.applicantName.trim()) errs.push('اسم مقدم الطلب مطلوب');
-      if (!projectInfo.email.trim()) errs.push('البريد الإلكتروني مطلوب');
-      if (!projectInfo.department.trim()) errs.push('الجهة / الكلية مطلوبة');
-    } else if (step >= 1 && step <= 5) {
-      const key = DIM_KEYS[step - 1];
-      const unrated = DIMENSIONS[key].criteria.filter(c => !scores[key][c]);
+    if (step >= 1 && step <= dimCount) {
+      const dim = dimensions[step - 1];
+      const dimScores = currentScores[dim.key] || {};
+      const unrated = dim.criteria.filter((c) => !dimScores[c]);
       if (unrated.length > 0) errs.push(`المعايير التالية لم تُقيَّم بعد: ${unrated.join(' ، ')}`);
     }
     setErrors(errs);
     return errs.length === 0;
   }
 
-  async function checkDuplicateProject(projectNumber: string): Promise<boolean> {
-    if (!judgeId || !projectNumber.trim() || editMode) return false;
-    const { data } = await supabase
-      .from('submissions')
-      .select('id')
-      .eq('judge_id', judgeId)
-      .eq('project_number', projectNumber.trim())
-      .limit(1);
-    return (data?.length ?? 0) > 0;
-  }
-
-  async function next() {
+  function next() {
     if (!validate()) return;
-
-    if (step === 0 && judgeId && !editMode) {
-      setCheckingProject(true);
-      const isDuplicate = await checkDuplicateProject((projectInfo as any).projectNumber);
-      setCheckingProject(false);
-      if (isDuplicate) {
-        setErrors(['لقد قيّمت هذا المشروع مسبقاً. كل حكّم يمكنه تقييم كل مشروع مرة واحدة فقط.']);
-        return;
-      }
-    }
-
-    setErrors([]); setDir(1); setStep(s => s + 1);
+    setErrors([]); setDir(1); setStep((s) => s + 1);
   }
-
-  function prev() { setErrors([]); setDir(-1); setStep(s => s - 1); }
+  function prev() { setErrors([]); setDir(-1); setStep((s) => s - 1); }
 
   async function submit() {
-    if (submitting) return;
+    if (submitting || !ctx) return;
     setSubmitting(true);
-
-    const data: EvaluationData = {
-      projectInfo,
-      technology: scores.technology,
-      market: scores.market,
-      businessModel: scores.businessModel,
-      teamCapabilities: scores.teamCapabilities,
-      impact: scores.impact,
-    };
-    const results = calculateResults(data);
-
-    if (editMode) {
-      // تحديث التقييم الموجود
-      const { error } = await supabase.from('submissions').update({
-        project_name: projectInfo.projectName,
-        applicant_name: projectInfo.applicantName,
-        email: projectInfo.email,
-        department: projectInfo.department,
-        description: projectInfo.description,
-        final_score: results.finalScore,
-        classification: results.classification,
-        classification_en: results.classificationEn,
-        decision: results.decision,
-        data: { ...data, projectNumber: (projectInfo as any).projectNumber },
-        results,
-        date: new Date().toLocaleDateString('ar-SA'),
-      }).eq('id', editSubmission.id);
-
-      if (error) console.error('Update error:', error.message);
-      nav('/judge');
-    } else {
-      const submission: any = {
-        id: Date.now().toString(),
-        date: new Date().toLocaleDateString('ar-SA'),
-        data: { ...data, projectNumber: (projectInfo as any).projectNumber },
-        results,
-        judgeId: judgeId ?? undefined,
-        judgeName: judgeName || undefined,
+    setErrors([]);
+    try {
+      const data: EvaluationData = {
+        projectInfo: {
+          projectName: ctx.project.project_name,
+          applicantName: ctx.project.applicant_name,
+          email: ctx.project.email,
+          department: ctx.project.department ?? '',
+          description: ctx.project.description ?? '',
+        },
+        ...Object.fromEntries(DIM_KEYS.map((k) => [k, currentScores[k] ?? {}])),
       };
-      await saveSubmission(submission as Submission);
-      onComplete(submission as Submission);
-    }
+      const results = calculateResults(data, dimensions);
 
-    setSubmitting(false);
+      // Flatten {dimKey → {critName → 1..5}} into [{criterion_id, score}] using real DB UUIDs.
+      // Fallback static IDs (prefixed "static-") are skipped — those only appear when the DB
+      // hasn't been seeded, in which case the RPC would reject the row anyway.
+      const flatScores = dimensions.flatMap((dim) =>
+        Object.entries(currentScores[dim.key] ?? {}).flatMap(([name, score]) => {
+          const cid = dim.criteriaIds[name];
+          if (!cid || cid.startsWith('static-') || score < 1 || score > 5) return [];
+          return [{ criterion_id: cid, score: score as 1 | 2 | 3 | 4 | 5 }];
+        }),
+      );
+
+      await saveReview({
+        projectId: ctx.project.id,
+        scores: flatScores,
+        finalScore: results.finalScore,
+        classification: results.classification,
+        submit: true,
+      });
+
+      onComplete({
+        id: ctx.project.id,
+        date: new Date().toLocaleDateString('ar-SA'),
+        data,
+        results,
+      });
+    } catch (e) {
+      setErrors([e instanceof Error ? e.message : 'تعذّر حفظ التقييم. حاول مرة أخرى.']);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const variants = {
@@ -200,16 +202,33 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
     exit: (d: number) => ({ x: d > 0 ? 60 : -60, opacity: 0 }),
   };
 
-  if (!authChecked) {
+  // ── conditional renders after all hooks ────────────────────────────────
+  if (!projectId) return <Navigate to="/judge" replace />;
+
+  if (ctxLoading || critLoading) {
     return (
-      <div className="min-h-screen bg-cream flex items-center justify-center">
-        <div className="text-navy/40 text-sm">جارٍ التحقق...</div>
+      <div className="min-h-screen bg-cream flex items-center justify-center" dir="rtl">
+        <div className="text-navy/40">جارٍ تحميل بيانات المشروع...</div>
       </div>
     );
   }
+  if (ctxError) {
+    return (
+      <div className="min-h-screen bg-cream flex flex-col items-center justify-center gap-3" dir="rtl">
+        <div className="text-3xl">⚠️</div>
+        <div className="text-red-700 font-bold">{ctxError}</div>
+        <button onClick={() => nav('/judge')} className="text-navy/70 hover:text-navy text-sm font-medium">
+          → العودة للوحة الحكّام
+        </button>
+      </div>
+    );
+  }
+  if (!ctx) return <Navigate to="/judge" replace />;
+
+  const project = ctx.project;
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
+    <div className="min-h-screen bg-cream flex flex-col" dir="rtl">
       <Navbar />
 
       <div className="h-1 bg-navy/8 flex-shrink-0" style={{ marginTop: '80px' }}>
@@ -218,7 +237,7 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
 
       {editMode && (
         <div className="bg-gold/10 border-b border-gold/30 px-8 py-2 text-center">
-          <span className="text-sm font-bold text-navy/70">✏️ وضع التعديل — ستُحدَّث النتائج بعد الإرسال</span>
+          <span className="text-sm font-bold text-navy/70">✏️ وضع التعديل — ستُحدَّث النتائج عند الإرسال</span>
         </div>
       )}
 
@@ -257,8 +276,12 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
             {step === 0 && (
               <div>
                 <div className="mb-8">
-                  <h2 className="text-3xl font-black text-navy mb-2">معلومات المشروع</h2>
-                  <p className="text-navy/50">أدخل بيانات مشروعك الأساسية للبدء في عملية التقييم</p>
+                  <div className="inline-flex items-center gap-2 bg-gold/15 rounded-lg px-3 py-1.5 mb-3">
+                    <span className="text-xs font-bold text-navy/70">رقم المشروع</span>
+                    <span className="text-xs font-black text-gold" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>#{project.project_number}</span>
+                  </div>
+                  <h2 className="text-3xl font-black text-navy mb-2">{project.project_name}</h2>
+                  <p className="text-navy/50">ملخص المشروع — البيانات معتمدة من الإدارة ولا يمكن تعديلها.</p>
                   {judgeName && (
                     <div className="mt-3 inline-flex items-center gap-2 bg-navy/6 rounded-lg px-3 py-1.5">
                       <span className="text-xs text-navy/50">الحكّم:</span>
@@ -267,102 +290,82 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
                   )}
                 </div>
                 <div className="bg-white rounded-2xl border border-navy/8 p-8 grid grid-cols-2 gap-6">
-                  {[
-                    { label: 'رقم المشروع *', key: 'projectNumber', placeholder: 'مثال: 001', col: 2 },
-                    { label: 'اسم المشروع *', key: 'projectName', placeholder: 'أدخل اسم مشروعك الابتكاري', col: 2 },
-                    { label: 'اسم مقدم الطلب *', key: 'applicantName', placeholder: 'الاسم الكامل' },
-                    { label: 'البريد الإلكتروني *', key: 'email', placeholder: 'example@najah.edu' },
-                    { label: 'الجهة / الكلية *', key: 'department', placeholder: 'كلية / قسم / جهة' },
-                  ].map((field) => (
-                    <div key={field.key} className={field.col === 2 ? 'col-span-2' : ''}>
-                      <label className="block text-sm font-bold text-navy/70 mb-2">{field.label}</label>
-                      <input
-                        type={field.key === 'email' ? 'email' : 'text'}
-                        value={(projectInfo as any)[field.key] ?? ''}
-                        onChange={e => setProjectInfo({ ...projectInfo, [field.key]: e.target.value } as any)}
-                        placeholder={field.placeholder}
-                        className="w-full border border-navy/15 rounded-xl px-4 py-3 text-navy text-sm focus:outline-none focus:border-navy focus:ring-2 focus:ring-navy/10 transition-all bg-cream/50 placeholder:text-navy/25"
-                      />
+                  <ReadField label="نوع المشروع" value={project.project_type === 'team' ? 'فريق' : 'فردي'} />
+                  <ReadField label="مقدم الطلب" value={project.applicant_name} />
+                  <ReadField label="البريد الإلكتروني" value={project.email} ltr />
+                  <ReadField label="الجهة / الكلية" value={project.department ?? '—'} />
+                  <ReadField label="وصف المشروع" value={project.description ?? '—'} col={2} />
+                  {ctx.members.length > 0 && (
+                    <div className="col-span-2">
+                      <div className="text-xs text-navy/40 mb-2">أعضاء الفريق</div>
+                      <div className="flex flex-wrap gap-2">
+                        {ctx.members.map((m) => (
+                          <span key={m.id} className="text-xs font-bold text-navy bg-navy/6 px-3 py-1.5 rounded-lg">
+                            {m.full_name}{m.role ? <span className="text-navy/40"> — {m.role}</span> : null}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                  <div className="col-span-2">
-                    <label className="block text-sm font-bold text-navy/70 mb-2">وصف مختصر للمشروع</label>
-                    <textarea
-                      value={projectInfo.description}
-                      onChange={e => setProjectInfo({ ...projectInfo, description: e.target.value })}
-                      placeholder="اكتب وصفاً مختصراً لفكرة مشروعك..."
-                      rows={4}
-                      className="w-full border border-navy/15 rounded-xl px-4 py-3 text-navy text-sm focus:outline-none focus:border-navy focus:ring-2 focus:ring-navy/10 transition-all bg-cream/50 placeholder:text-navy/25 resize-none"
-                    />
-                  </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {step >= 1 && step <= 5 && currentDim && (
+            {step >= 1 && step <= dimCount && currentDim && (
               <div>
                 <div className="mb-8 flex items-start justify-between">
                   <div>
                     <div className="inline-flex items-center gap-2 bg-navy/6 rounded-lg px-3 py-1.5 mb-3">
-                      <span className="text-xs font-bold text-navy/50 uppercase tracking-widest">المحور {step} من 5</span>
-                      <span className="text-xs font-black text-gold">وزن {DIMENSIONS[dimKey].weight}%</span>
+                      <span className="text-xs font-bold text-navy/50 uppercase tracking-widest">المحور {step} من {dimCount}</span>
+                      <span className="text-xs font-black text-gold">وزن {currentDim.weight}%</span>
                     </div>
                     <h2 className="text-3xl font-black text-navy mb-2">{currentDim.nameAr}</h2>
                     <p className="text-navy/50">قيّم كل معيار من 1 (ضعيف جداً) إلى 5 (ممتاز)</p>
                   </div>
                   <div className="bg-navy rounded-2xl p-4 text-center min-w-[90px]">
                     <div className="text-2xl font-black text-gold">
-                      {Object.keys(scores[dimKey]).length > 0
-                        ? (Object.values(scores[dimKey]).reduce((a, b) => a + b, 0) / Object.keys(scores[dimKey]).length).toFixed(1)
+                      {Object.keys(currentScores[dimKey] || {}).length > 0
+                        ? (Object.values(currentScores[dimKey] || {}).reduce((a, b) => a + b, 0) / Object.keys(currentScores[dimKey] || {}).length).toFixed(1)
                         : '—'}
                     </div>
                     <div className="text-white/40 text-xs mt-1">متوسط</div>
                   </div>
                 </div>
                 <div className="bg-white rounded-2xl border border-navy/8 p-8">
-                  {currentDim.criteria.map(criterion => (
+                  {currentDim.criteria.map((criterion) => (
                     <StarRating key={criterion} criterion={criterion}
-                      value={scores[dimKey][criterion] ?? 0}
-                      onChange={val => updateScore(dimKey, criterion, val)}
+                      value={(currentScores[dimKey] || {})[criterion] ?? 0}
+                      onChange={(val) => updateScore(dimKey, criterion, val)}
                     />
                   ))}
                 </div>
               </div>
             )}
 
-            {step === 6 && (
+            {step === STEPS.length - 1 && (
               <div>
                 <div className="mb-8">
                   <h2 className="text-3xl font-black text-navy mb-2">{editMode ? 'مراجعة التعديلات' : 'مراجعة التقييم'}</h2>
                   <p className="text-navy/50">راجع بياناتك قبل الإرسال النهائي</p>
                 </div>
                 <div className="bg-white rounded-2xl border border-navy/8 p-6 mb-4">
-                  <div className="text-xs font-bold text-navy/40 uppercase tracking-widest mb-4">معلومات المشروع</div>
+                  <div className="text-xs font-bold text-navy/40 uppercase tracking-widest mb-4">المشروع</div>
                   <div className="grid grid-cols-2 gap-4">
-                    {[
-                      { label: 'رقم المشروع', val: (projectInfo as any).projectNumber },
-                      { label: 'اسم المشروع', val: projectInfo.projectName },
-                      { label: 'مقدم الطلب', val: projectInfo.applicantName },
-                      { label: 'البريد الإلكتروني', val: projectInfo.email },
-                      { label: 'الجهة / الكلية', val: projectInfo.department },
-                    ].map(f => (
-                      <div key={f.label}>
-                        <div className="text-xs text-navy/40 mb-0.5">{f.label}</div>
-                        <div className="text-sm font-bold text-navy">{f.val || '—'}</div>
-                      </div>
-                    ))}
+                    <ReadField label="رقم المشروع" value={`#${project.project_number}`} />
+                    <ReadField label="اسم المشروع" value={project.project_name} />
+                    <ReadField label="مقدم الطلب" value={project.applicant_name} />
+                    <ReadField label="النوع" value={project.project_type === 'team' ? 'فريق' : 'فردي'} />
                   </div>
                 </div>
                 <div className="bg-white rounded-2xl border border-navy/8 p-6 mb-4">
                   <div className="text-xs font-bold text-navy/40 uppercase tracking-widest mb-4">درجات المحاور</div>
                   <div className="space-y-3">
-                    {DIM_KEYS.map(key => {
-                      const dim = DIMENSIONS[key];
-                      const vals = Object.values(scores[key]);
+                    {dimensions.map((dim) => {
+                      const vals = Object.values(currentScores[dim.key] || {});
                       const avg = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
                       const weighted = (avg / 5) * dim.weight;
                       return (
-                        <div key={key} className="flex items-center gap-4">
+                        <div key={dim.key} className="flex items-center gap-4">
                           <div className="w-36 text-sm font-medium text-navy/70">{dim.nameAr}</div>
                           <div className="flex-1 h-2 bg-navy/6 rounded-full overflow-hidden">
                             <div className="h-full bg-gold rounded-full transition-all duration-500" style={{ width: `${(avg / 5) * 100}%` }} />
@@ -380,9 +383,8 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
                     <div className="text-white text-sm">{editMode ? 'سيتم تحديث نتائج التقييم السابق' : 'بعد الإرسال ستحصل على تقرير مفصل كامل'}</div>
                   </div>
                   <div className="text-5xl font-black text-gold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                    {DIM_KEYS.reduce((total, key) => {
-                      const dim = DIMENSIONS[key];
-                      const vals = Object.values(scores[key]);
+                    {dimensions.reduce((total, dim) => {
+                      const vals = Object.values(currentScores[dim.key] || {});
                       const avg = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
                       return total + (avg / 5) * dim.weight;
                     }, 0).toFixed(1)}
@@ -412,14 +414,12 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
             ))}
           </div>
           {step < STEPS.length - 1 ? (
-            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              onClick={() => next()} disabled={checkingProject}
-              className="bg-gold text-navy font-black px-8 py-3 rounded-xl flex items-center gap-2 disabled:opacity-60">
-              {checkingProject ? 'جارٍ التحقق...' : 'التالي ←'}
+            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={next}
+              className="bg-gold text-navy font-black px-8 py-3 rounded-xl flex items-center gap-2">
+              التالي ←
             </motion.button>
           ) : (
-            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              onClick={submit} disabled={submitting}
+            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={submit} disabled={submitting}
               className="bg-navy text-white font-black px-8 py-3 rounded-xl flex items-center gap-2 disabled:opacity-60">
               {submitting ? 'جارٍ الحفظ...' : editMode ? 'حفظ التعديلات ✓' : 'إرسال التقييم ✓'}
             </motion.button>
@@ -427,18 +427,18 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
         </div>
       </div>
 
-      <footer className="bg-[#0f1e47] py-6 px-8 mt-auto flex-shrink-0">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="INNOPARK" width={36} height={36} style={{ objectFit: 'contain' }} />
-            <div>
-              <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: 800, color: '#F5A623', fontSize: '13px', letterSpacing: '2px' }}>INNOPARK</div>
-              <div style={{ fontFamily: "'Tajawal',sans-serif", color: 'rgba(255,255,255,0.25)', fontSize: '10px' }}>حديقة النجاح للابتكار</div>
-            </div>
-          </div>
-          <div className="text-white/20 text-xs">© 2026 جميع الحقوق محفوظة</div>
-        </div>
-      </footer>
+      <Footer containerClassName="max-w-4xl" className="py-6 px-8 mt-auto" />
+    </div>
+  );
+}
+
+function ReadField({ label, value, col = 1, ltr = false }: { label: string; value: string; col?: 1 | 2; ltr?: boolean }) {
+  return (
+    <div className={col === 2 ? 'col-span-2' : ''}>
+      <div className="text-xs text-navy/40 mb-1">{label}</div>
+      <div className="text-sm font-bold text-navy bg-cream/50 border border-navy/10 rounded-xl px-4 py-3" dir={ltr ? 'ltr' : undefined}>
+        {value || '—'}
+      </div>
     </div>
   );
 }

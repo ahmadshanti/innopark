@@ -1,22 +1,37 @@
-import type { EvaluationData, EvaluationResult, DimensionResult, Submission } from '../types';
+import type { EvaluationData, EvaluationResult, DimensionResult } from '../types';
 import { DIMENSIONS } from '../types';
-import { supabase } from '../lib/supabase';
+import type { DimensionView } from '../lib/criteria';
 
-export function calculateResults(data: EvaluationData): EvaluationResult {
-  const dimKeys = ['technology', 'market', 'businessModel', 'teamCapabilities', 'impact'] as const;
+type CalcDim = Pick<DimensionView, 'key' | 'nameAr' | 'weight' | 'criteria'>;
 
-  const dimensions: DimensionResult[] = dimKeys.map((key) => {
-    const dim = DIMENSIONS[key];
-    const scores = data[key];
+function staticDims(): CalcDim[] {
+  return Object.entries(DIMENSIONS).map(([key, d]) => ({
+    key, nameAr: d.nameAr, weight: d.weight, criteria: [...d.criteria],
+  }));
+}
+
+function readDimensionScores(data: EvaluationData, key: string) {
+  const value = data[key];
+  if (!value || typeof value !== 'object' || 'projectName' in value) return {};
+  return value;
+}
+
+export function calculateResults(data: EvaluationData, dims?: CalcDim[]): EvaluationResult {
+  const dimList = dims && dims.length > 0 ? dims : staticDims();
+
+  const dimensions: DimensionResult[] = dimList.map((dim) => {
+    const scores = readDimensionScores(data, dim.key);
     const criteriaScores = dim.criteria.map((nameAr) => ({
       nameAr,
       score: scores[nameAr] ?? 0,
     }));
-    const avgScore = criteriaScores.reduce((s, c) => s + c.score, 0) / criteriaScores.length;
+    const avgScore = criteriaScores.length > 0
+      ? criteriaScores.reduce((s, c) => s + c.score, 0) / criteriaScores.length
+      : 0;
     const weightedScore = (avgScore / 5) * dim.weight;
     return {
       nameAr: dim.nameAr,
-      key,
+      key: dim.key,
       weight: dim.weight,
       avgScore: Math.round(avgScore * 10) / 10,
       weightedScore: Math.round(weightedScore * 10) / 10,
@@ -74,89 +89,4 @@ function analyze(dimensions: DimensionResult[]) {
 
   if (recommendations.length === 0) recommendations.push('مواصلة العمل بنفس الزخم والتركيز على التوسع والنمو');
   return { strengths, weaknesses, recommendations };
-}
-
-// ── Supabase + localStorage ──────────────────────────────────────
-
-export async function saveSubmission(submission: Submission): Promise<void> {
-  // حفظ محلي دائماً
-  const existing = getSubmissionsLocal();
-  existing.unshift(submission);
-  localStorage.setItem('innopark_submissions', JSON.stringify(existing));
-
-  // حفظ على Supabase
-  try {
-    const sub = submission as any;
-    const { error } = await supabase.from('submissions').insert({
-      id: submission.id,
-      date: submission.date,
-      project_name: submission.data.projectInfo.projectName,
-      applicant_name: submission.data.projectInfo.applicantName,
-      email: submission.data.projectInfo.email,
-      department: submission.data.projectInfo.department,
-      description: submission.data.projectInfo.description,
-      final_score: submission.results.finalScore,
-      classification: submission.results.classification,
-      classification_en: submission.results.classificationEn,
-      decision: submission.results.decision,
-      data: submission.data,
-      results: submission.results,
-      project_number: sub.projectNumber ?? (submission.data as any).projectNumber ?? null,
-      judge_id: sub.judgeId ?? null,
-      judge_name: sub.judgeName ?? null,
-    });
-    if (error) console.error('Supabase error:', error.message);
-  } catch (e) {
-    console.error('Supabase save failed:', e);
-  }
-}
-
-export async function getSubmissions(): Promise<Submission[]> {
-  try {
-    const { data, error } = await supabase
-      .from('submissions')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error || !data) return getSubmissionsLocal();
-
-    return data.map((row: any) => ({
-      id: row.id,
-      date: row.date,
-      data: row.data,
-      results: row.results,
-    }));
-  } catch {
-    return getSubmissionsLocal();
-  }
-}
-
-function getSubmissionsLocal(): Submission[] {
-  try {
-    return JSON.parse(localStorage.getItem('innopark_submissions') ?? '[]');
-  } catch { return []; }
-}
-
-export async function updateSubmission(id: string, submission: Submission): Promise<void> {
-  try {
-    const sub = submission as any;
-    const { error } = await supabase.from('submissions').update({
-      date: submission.date,
-      project_name: submission.data.projectInfo.projectName,
-      applicant_name: submission.data.projectInfo.applicantName,
-      email: submission.data.projectInfo.email,
-      department: submission.data.projectInfo.department,
-      description: submission.data.projectInfo.description,
-      final_score: submission.results.finalScore,
-      classification: submission.results.classification,
-      classification_en: submission.results.classificationEn,
-      decision: submission.results.decision,
-      data: submission.data,
-      results: submission.results,
-      project_number: sub.projectNumber ?? (submission.data as any).projectNumber ?? null,
-    }).eq('id', id);
-    if (error) console.error('Supabase update error:', error.message);
-  } catch (e) {
-    console.error('Supabase update failed:', e);
-  }
 }

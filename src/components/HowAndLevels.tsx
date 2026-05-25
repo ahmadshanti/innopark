@@ -17,9 +17,9 @@ const levels = [
   { range: '> 85', name: 'عالي النضج', en: 'Acceleration', color: '#F5A623', bg: '#FEF3E2', bar: 95 },
 ];
 
-interface HowAndLevelsProps { onStartEval: () => void; }
+interface HowAndLevelsProps { onApply: () => void; }
 
-export default function HowAndLevels({ onStartEval }: HowAndLevelsProps) {
+export default function HowAndLevels({ onApply }: HowAndLevelsProps) {
   const refHow = useReveal();
   const refLevels = useReveal();
   const refCta = useReveal();
@@ -118,17 +118,17 @@ export default function HowAndLevels({ onStartEval }: HowAndLevelsProps) {
         <div ref={refCta as React.RefObject<HTMLDivElement>} className="max-w-7xl mx-auto px-4 md:px-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 reveal">
           <div>
             <h2 className="text-2xl md:text-4xl font-black text-navy leading-tight mb-3">
-              مشروعك الابتكاري<br />يستحق تقييماً احترافياً
+              مشروعك الابتكاري<br />يستحق فرصة احترافية
             </h2>
-            <p className="text-navy/60 text-base md:text-lg">ابدأ الآن وستحصل على توصية واضحة خلال دقائق</p>
+            <p className="text-navy/60 text-base md:text-lg">قدّم طلبك الآن وستتم مراجعته من قِبل لجنة التحكيم</p>
           </div>
           <motion.button
             whileHover={{ scale: 1.04, x: -4 }}
             whileTap={{ scale: 0.97 }}
-            onClick={onStartEval}
+            onClick={onApply}
             className="bg-navy text-white font-black text-base md:text-xl px-7 md:px-10 py-4 md:py-5 rounded-xl flex items-center gap-3 md:gap-4 flex-shrink-0 min-h-[44px] w-full md:w-auto justify-center"
           >
-            ابدأ التقييم الآن
+            قدّم مشروعك
             <span className="text-gold text-xl md:text-2xl">←</span>
           </motion.button>
         </div>
@@ -138,7 +138,7 @@ export default function HowAndLevels({ onStartEval }: HowAndLevelsProps) {
       <footer id="footer" className="bg-[#0f1e47] py-6 md:py-8 px-4 md:px-8">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="INNOPARK" width={44} height={44} style={{ objectFit: 'contain' }} />
+            <img src="/logo.webp" alt="INNOPARK" width={44} height={44} style={{ objectFit: 'contain' }} />
             <div>
               <div className="font-grotesk font-extrabold text-gold tracking-[3px] text-base">INNOPARK</div>
               <div className="text-white/25 text-xs mt-1">حديقة النجاح للابتكار — جامعة النجاح الوطنية</div>
