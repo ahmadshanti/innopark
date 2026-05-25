@@ -16,8 +16,6 @@ export interface ProjectWithReview {
   myReview: MyReviewWithScores | null;
 }
 
-// One-shot load: project, its team members, and the current judge's review
-// (which RLS scopes to auth.uid()). Runs the three queries in parallel.
 export async function loadProjectWithReview(projectId: string): Promise<ProjectWithReview> {
   const [pRes, mRes, rRes] = await Promise.all([
     supabase.from('projects').select('*').eq('id', projectId).single(),
@@ -51,20 +49,18 @@ export async function loadProjectWithReview(projectId: string): Promise<ProjectW
 export interface SaveReviewInput {
   projectId: string;
   scores: UpsertReviewScoreInput[];
-  finalScore: number;
-  classification: string;
   notes?: string | null;
   submit?: boolean;
 }
 
+// final_score / classification are intentionally NOT part of this surface —
+// the RPC computes them server-side from p_scores × criteria × dimensions.
 export async function saveReview(input: SaveReviewInput): Promise<ProjectReview> {
   const { data, error } = await supabase.rpc('upsert_review', {
     p_project_id: input.projectId,
     p_scores: input.scores,
-    p_final: input.finalScore,
-    p_class: input.classification,
     p_notes: input.notes ?? null,
-    p_submit: input.submit ?? true,
+    p_submit: input.submit ?? false,
   });
   if (error) throw new Error(error.message);
   return data as ProjectReview;

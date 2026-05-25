@@ -35,7 +35,7 @@ export default function JudgesPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
+    <div className="min-h-screen bg-cream flex flex-col" dir="rtl">
       <Navbar />
 
       <div

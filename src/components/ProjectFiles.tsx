@@ -25,6 +25,10 @@ export default function ProjectFiles({ projectId, emptyText = 'لا توجد م�
 
   useEffect(() => {
     let cancelled = false;
+    // Fetch-on-mount loading pattern — the lint rule fires on the synchronous
+    // setState, but resetting these three pieces of UI state when projectId
+    // changes is exactly the intent.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError('');
     setThumbs({});
@@ -57,7 +61,20 @@ export default function ProjectFiles({ projectId, emptyText = 'لا توجد م�
     setBusy({ id: file.id, action: 'preview' });
     try {
       const url = await createFilePreviewUrl(file.file_path);
-      window.open(url, '_blank', 'noopener,noreferrer');
+      const win = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!win) {
+        // Popup blocked (likely because the open() happened after an await,
+        // outside the original user-gesture). Fall back to navigating an
+        // anchor — the same gesture-style download path that works in all
+        // major browsers.
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'تعذّر فتح الملف');
     } finally {

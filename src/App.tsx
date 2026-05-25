@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import type { ReactElement } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { MotionConfig } from 'framer-motion';
 import HomePage from './pages/HomePage';
 import ApplyProjectPage from './pages/ApplyProjectPage';
@@ -16,12 +15,16 @@ import JudgesPage from './pages/JudgesPage';
 import ProfilePage from './pages/ProfilePage';
 import { AuthProvider, RequireRole } from './lib/auth';
 import { CriteriaProvider } from './lib/criteria';
-import type { Submission } from './types';
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
 
 function AppRoutes() {
-  const [submission, setSubmission] = useState<Submission | null>(null);
-  const nav = useNavigate();
-
   return (
     <Routes>
       {/* Public */}
@@ -53,17 +56,18 @@ function AppRoutes() {
         }
       />
 
-      {/* Judge-only — must arrive with a project picked from the dashboard */}
+      {/* Judge-only — project id lives in the URL so refresh / share works */}
       <Route
-        path="/evaluation"
+        path="/evaluation/:projectId"
         element={
           <RequireRole role="judge">
-            <RequireProjectContext>
-              <EvaluationPage onComplete={(sub) => { setSubmission(sub); nav('/results'); }} />
-            </RequireProjectContext>
+            <EvaluationPage />
           </RequireRole>
         }
       />
+      {/* Legacy bare path → bounce to dashboard */}
+      <Route path="/evaluation" element={<Navigate to="/judge" replace />} />
+
       <Route
         path="/judge"
         element={
@@ -73,15 +77,15 @@ function AppRoutes() {
         }
       />
 
-      {/* Results screen — only meaningful after an evaluation in this session */}
       <Route
-        path="/results"
+        path="/results/:projectId"
         element={
-          submission
-            ? <ResultsPage submission={submission} onBack={() => nav('/')} onNewEval={() => nav('/evaluation')} />
-            : <Navigate to="/" replace />
+          <RequireRole role="judge">
+            <ResultsPage />
+          </RequireRole>
         }
       />
+      <Route path="/results" element={<Navigate to="/judge" replace />} />
 
       {/* Admin-only */}
       <Route
@@ -98,13 +102,6 @@ function AppRoutes() {
   );
 }
 
-function RequireProjectContext({ children }: { children: ReactElement }) {
-  const loc = useLocation();
-  const s = loc.state as { project?: { id?: string } | null } | null;
-  if (!s?.project?.id) return <Navigate to="/judge" replace />;
-  return children;
-}
-
 export default function App() {
   const reducedMotion = typeof navigator !== 'undefined' && navigator.webdriver ? 'always' : 'never';
 
@@ -112,6 +109,7 @@ export default function App() {
     <div dir="rtl">
       <MotionConfig reducedMotion={reducedMotion}>
         <BrowserRouter>
+          <ScrollToTop />
           <AuthProvider>
             <CriteriaProvider>
               <AppRoutes />

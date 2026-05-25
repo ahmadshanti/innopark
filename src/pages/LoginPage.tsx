@@ -60,6 +60,7 @@ export default function LoginPage() {
     }
 
     if (prof.status === 'pending') {
+      await supabase.auth.signOut();
       setError('حسابك قيد المراجعة من قبل الأدمن. ستتمكن من الدخول بعد الموافقة.');
       setLoading(false);
       return;

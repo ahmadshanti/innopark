@@ -1,14 +1,12 @@
-import { useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import type { Submission } from '../types';
+import { useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-
-interface ResultsPageProps {
-  submission: Submission;
-  onBack: () => void;
-  onNewEval: () => void;
-}
+import { useCriteria } from '../lib/criteria';
+import { loadProjectWithReview, type ProjectWithReview } from '../lib/reviews';
+import { calculateResults } from '../utils/scoring';
+import type { EvaluationData, EvaluationResult } from '../types';
 
 const LEVEL_COLORS: Record<string, { bg: string; text: string; border: string; bar: string }> = {
   'غير جاهز':        { bg: '#FCEBEB', text: '#A32D2D', border: '#F7C1C1', bar: '#E24B4A' },
@@ -18,45 +16,139 @@ const LEVEL_COLORS: Record<string, { bg: string; text: string; border: string; b
   'عالي النضج':      { bg: '#EEEDFE', text: '#534AB7', border: '#CECBF6', bar: '#F5A623' },
 };
 
-export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPageProps) {
-  const { results, data } = submission;
-  const printRef = useRef<HTMLDivElement>(null);
+// RFC-4180 style CSV cell quoting.
+function csvCell(v: string | number): string {
+  const s = String(v);
+  if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function safeFilename(s: string): string {
+  // strip filesystem-hostile chars and trim length
+  return s.replace(/[\\/:*?"<>|\n\r\t]/g, '').trim().slice(0, 80) || 'report';
+}
+
+export default function ResultsPage() {
+  const nav = useNavigate();
+  const { projectId } = useParams<{ projectId: string }>();
+  const { dimensions, loading: critLoading } = useCriteria();
+
+  const [ctx, setCtx] = useState<ProjectWithReview | null>(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoading(true);
+    setError('');
+    (async () => {
+      try {
+        const data = await loadProjectWithReview(projectId);
+        if (!cancelled) setCtx(data);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'تعذّر تحميل النتائج');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+  const results = useMemo<EvaluationResult | null>(() => {
+    if (!ctx?.myReview || dimensions.length === 0) return null;
+    const idToName: Record<string, { key: string; name: string }> = {};
+    dimensions.forEach((d) =>
+      Object.entries(d.criteriaIds).forEach(([name, id]) => {
+        idToName[id] = { key: d.key, name };
+      }),
+    );
+    const scoresByDim: Record<string, Record<string, number>> = {};
+    ctx.myReview.scores.forEach(({ criterion_id, score }) => {
+      const m = idToName[criterion_id];
+      if (!m) return;
+      scoresByDim[m.key] = { ...(scoresByDim[m.key] ?? {}), [m.name]: score };
+    });
+    const data: EvaluationData = {
+      projectInfo: {
+        projectName: ctx.project.project_name,
+        applicantName: ctx.project.applicant_name,
+        email: ctx.project.email,
+        department: ctx.project.department ?? '',
+        description: ctx.project.description ?? '',
+      },
+      ...scoresByDim,
+    };
+    return calculateResults(data, dimensions);
+  }, [ctx, dimensions]);
+
+  if (loading || critLoading) {
+    return (
+      <div className="min-h-screen bg-cream flex items-center justify-center" dir="rtl">
+        <div className="text-navy/40">جارٍ تحميل النتائج...</div>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="min-h-screen bg-cream flex flex-col items-center justify-center gap-3" dir="rtl">
+        <div className="text-3xl">⚠️</div>
+        <div className="text-red-700 font-bold">{error}</div>
+        <button onClick={() => nav('/judge')} className="text-navy/70 hover:text-navy text-sm font-medium">
+          → العودة للوحة الحكّام
+        </button>
+      </div>
+    );
+  }
+  if (!ctx || !ctx.myReview || !ctx.myReview.submitted_at || !results) {
+    return (
+      <div className="min-h-screen bg-cream flex flex-col items-center justify-center gap-3" dir="rtl">
+        <div className="text-3xl">📝</div>
+        <div className="text-navy/70 font-bold">لم يتم إرسال تقييم لهذا المشروع بعد.</div>
+        <button onClick={() => nav('/judge')} className="text-navy/70 hover:text-navy text-sm font-medium">
+          → العودة للوحة الحكّام
+        </button>
+      </div>
+    );
+  }
+
+  const project = ctx.project;
   const color = LEVEL_COLORS[results.classification] ?? LEVEL_COLORS['متقدم'];
   const circumference = 2 * Math.PI * 54;
   const dashOffset = circumference - (results.finalScore / 100) * circumference;
+  const submittedAt = ctx.myReview.submitted_at
+    ? new Date(ctx.myReview.submitted_at).toLocaleDateString('ar-SA')
+    : '';
 
   function handlePrint() {
     window.print();
   }
 
   function handleExport() {
+    if (!results) return;
     const rows = [
       ['المحور', 'المتوسط', 'الوزن', 'الدرجة الموزونة'],
       ...results.dimensions.map(d => [d.nameAr, d.avgScore, `${d.weight}%`, d.weightedScore]),
       ['الدرجة النهائية', '', '', results.finalScore],
     ];
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const csv = rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `تقرير_${data.projectInfo.projectName}_${submission.date}.csv`;
+    a.download = `${safeFilename(`تقرير_${project.project_number}_${project.project_name}`)}_${submittedAt || 'report'}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
 
   return (
-    <div className="min-h-screen bg-cream flex flex-col">
+    <div className="min-h-screen bg-cream flex flex-col" dir="rtl">
       <Navbar />
 
-      {/* Hero result bar */}
-      <div className="bg-navy px-4 md:px-8 flex-shrink-0" style={{ paddingTop: "80px", paddingBottom: "32px" }}>
+      <div className="bg-navy px-4 md:px-8 flex-shrink-0" style={{ paddingTop: '80px', paddingBottom: '32px' }}>
         <div className="max-w-5xl mx-auto">
-
-          {/* Top row: score + name + classification + decision */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 md:gap-8 mb-6">
-
-            {/* Circular score */}
             <div className="relative flex-shrink-0" style={{ width: '120px', height: '120px' }}>
               <svg width="120" height="120" viewBox="0 0 128 128">
                 <circle cx="64" cy="64" r="54" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10" />
@@ -83,7 +175,7 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
 
             <div className="flex-1">
               <div className="text-white/50 text-sm mb-1">المشروع</div>
-              <div className="text-white text-2xl font-black mb-3">{data.projectInfo.projectName}</div>
+              <div className="text-white text-2xl font-black mb-3">{project.project_name}</div>
               <div
                 className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold"
                 style={{ background: color.bg, color: color.text }}
@@ -93,14 +185,12 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
               </div>
             </div>
 
-            {/* Decision */}
             <div className="border border-white/10 rounded-2xl p-4 md:p-5 w-full sm:max-w-sm sm:flex-1">
               <div className="text-white/40 text-xs font-bold uppercase tracking-widest mb-2">القرار الموصى به</div>
               <div className="text-white text-sm leading-relaxed">{results.decision}</div>
             </div>
           </div>
 
-          {/* Bottom row: action buttons */}
           <div className="flex flex-wrap items-center gap-2 md:gap-3 border-t border-white/10 pt-4 md:pt-5">
             <motion.button
               whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
@@ -117,19 +207,22 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
               📥 تصدير CSV
             </motion.button>
             <button
-              onClick={onNewEval}
+              onClick={() => nav(`/evaluation/${project.id}`)}
+              className="text-white/60 hover:text-white text-sm px-5 py-2 transition-colors"
+            >
+              ✏️ تعديل التقييم
+            </button>
+            <button
+              onClick={() => nav('/judge')}
               className="text-white/40 hover:text-white text-sm px-5 py-2 transition-colors mr-auto"
             >
-              + تقييم جديد
+              → لوحة الحكّام
             </button>
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div ref={printRef} className="flex-1 max-w-5xl mx-auto w-full px-4 md:px-8 py-6 md:py-10">
-
-        {/* Dimensions table */}
+      <div className="flex-1 max-w-5xl mx-auto w-full px-4 md:px-8 py-6 md:py-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -141,38 +234,38 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
             <div className="text-xs text-navy/40">الدرجة الكلية من 100</div>
           </div>
           <div className="overflow-x-auto">
-          <div className="divide-y divide-navy/5 min-w-[420px]">
-            {results.dimensions.map((dim, i) => (
-              <motion.div
-                key={dim.key}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 * i + 0.3 }}
-                className="px-4 md:px-6 py-4 flex items-center gap-3 md:gap-4"
-              >
-                <div className="w-28 md:w-36 text-sm font-bold text-navy flex-shrink-0">{dim.nameAr}</div>
-                <div className="flex-1 h-2.5 bg-navy/5 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(dim.avgScore / 5) * 100}%` }}
-                    transition={{ delay: i * 0.1 + 0.5, duration: 0.8, ease: 'easeOut' }}
-                    className="h-full rounded-full"
-                    style={{ background: color.bar }}
-                  />
-                </div>
-                <div className="text-sm font-bold text-navy w-12 text-center">{dim.avgScore}/5</div>
-                <div className="text-xs text-navy/40 w-20 text-center">
-                  {dim.weightedScore} من {dim.weight}
-                </div>
-                <div
-                  className="text-xs font-bold px-2.5 py-1 rounded-full w-14 text-center"
-                  style={{ background: color.bg, color: color.text }}
+            <div className="divide-y divide-navy/5 min-w-[420px]">
+              {results.dimensions.map((dim, i) => (
+                <motion.div
+                  key={dim.key}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 * i + 0.3 }}
+                  className="px-4 md:px-6 py-4 flex items-center gap-3 md:gap-4"
                 >
-                  {dim.weight}%
-                </div>
-              </motion.div>
-            ))}
-          </div>
+                  <div className="w-28 md:w-36 text-sm font-bold text-navy flex-shrink-0">{dim.nameAr}</div>
+                  <div className="flex-1 h-2.5 bg-navy/5 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(dim.avgScore / 5) * 100}%` }}
+                      transition={{ delay: i * 0.1 + 0.5, duration: 0.8, ease: 'easeOut' }}
+                      className="h-full rounded-full"
+                      style={{ background: color.bar }}
+                    />
+                  </div>
+                  <div className="text-sm font-bold text-navy w-12 text-center">{dim.avgScore}/5</div>
+                  <div className="text-xs text-navy/40 w-20 text-center">
+                    {dim.weightedScore} من {dim.weight}
+                  </div>
+                  <div
+                    className="text-xs font-bold px-2.5 py-1 rounded-full w-14 text-center"
+                    style={{ background: color.bg, color: color.text }}
+                  >
+                    {dim.weight}%
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
           <div className="px-4 md:px-6 py-4 bg-navy/3 border-t border-navy/8 flex items-center justify-between">
             <div className="font-black text-navy">المجموع الكلي</div>
@@ -182,7 +275,6 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
           </div>
         </motion.div>
 
-        {/* Strengths & Weaknesses */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mb-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -233,7 +325,6 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
           </motion.div>
         </div>
 
-        {/* Recommendations */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -259,7 +350,6 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
           </ul>
         </motion.div>
 
-        {/* Project info */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -269,10 +359,12 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
           <div className="text-xs font-bold text-navy/40 uppercase tracking-widest mb-4">بيانات مقدم الطلب</div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
-              { label: 'اسم المشروع', val: data.projectInfo.projectName },
-              { label: 'مقدم الطلب', val: data.projectInfo.applicantName },
-              { label: 'البريد الإلكتروني', val: data.projectInfo.email },
-              { label: 'الجهة / الكلية', val: data.projectInfo.department },
+              { label: 'رقم المشروع', val: `#${project.project_number}` },
+              { label: 'اسم المشروع', val: project.project_name },
+              { label: 'مقدم الطلب', val: project.applicant_name },
+              { label: 'البريد الإلكتروني', val: project.email },
+              { label: 'الجهة / الكلية', val: project.department ?? '—' },
+              { label: 'تاريخ الإرسال', val: submittedAt || '—' },
             ].map(f => (
               <div key={f.label}>
                 <div className="text-xs text-navy/40 mb-1">{f.label}</div>
@@ -280,20 +372,13 @@ export default function ResultsPage({ submission, onBack, onNewEval }: ResultsPa
               </div>
             ))}
           </div>
-          {data.projectInfo.description && (
+          {project.description && (
             <div className="mt-4 pt-4 border-t border-navy/8">
               <div className="text-xs text-navy/40 mb-1">وصف المشروع</div>
-              <div className="text-sm text-navy/70 leading-relaxed">{data.projectInfo.description}</div>
+              <div className="text-sm text-navy/70 leading-relaxed">{project.description}</div>
             </div>
           )}
         </motion.div>
-
-        {/* Back button */}
-        <div className="mt-8 flex justify-center">
-          <button onClick={onBack} className="text-navy/40 hover:text-navy text-sm transition-colors flex items-center gap-2">
-            → العودة للرئيسية
-          </button>
-        </div>
       </div>
 
       <Footer containerClassName="max-w-5xl" />

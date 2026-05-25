@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/use-auth';
+import { getHomePathForRole } from '../lib/authorization';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
@@ -51,9 +52,15 @@ export default function ProfilePage() {
     loadProfile();
   }, [session]);
 
+  const ALLOWED_AVATAR_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!ALLOWED_AVATAR_MIME.includes(file.type)) {
+      setError('نوع الملف غير مدعوم. اختر صورة JPG / PNG / WEBP / GIF.');
+      return;
+    }
     if (file.size > 2 * 1024 * 1024) {
       setError('حجم الصورة يجب أن يكون أقل من 2MB');
       return;
@@ -78,11 +85,19 @@ export default function ProfilePage() {
     let newAvatarUrl = avatarUrl;
 
     if (avatarFile) {
-      const ext = avatarFile.name.split('.').pop();
+      // Normalise the extension by MIME type so we always overwrite the same
+      // object instead of orphaning previous uploads.
+      const extByMime: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/png':  'png',
+        'image/webp': 'webp',
+        'image/gif':  'gif',
+      };
+      const ext = extByMime[avatarFile.type] ?? 'jpg';
       const path = `${userId}/avatar.${ext}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(path, avatarFile, { upsert: true });
+        .upload(path, avatarFile, { upsert: true, contentType: avatarFile.type });
 
       if (uploadError) {
         setError('تعذّر رفع الصورة: ' + uploadError.message);
@@ -91,11 +106,12 @@ export default function ProfilePage() {
       }
       if (uploadData) {
         const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-        newAvatarUrl = urlData.publicUrl;
+        // Cache-buster so navbar / judges page show the fresh image immediately.
+        newAvatarUrl = `${urlData.publicUrl}?v=${Date.now()}`;
       }
     }
 
-    const { error: updateError } = await supabase
+    const { data: updatedRows, error: updateError } = await supabase
       .from('profiles')
       .update({
         full_name: fullName.trim(),
@@ -104,12 +120,19 @@ export default function ProfilePage() {
         department: department.trim(),
         avatar_url: newAvatarUrl,
       })
-      .eq('id', userId);
+      .eq('id', userId)
+      .select('id');
 
     setSaving(false);
 
     if (updateError) {
       setError('تعذّر حفظ التغييرات: ' + updateError.message);
+      return;
+    }
+    // RLS returns 0 rows without raising when the policy denies the write —
+    // surface that as an explicit error instead of a silent fake-success.
+    if (!updatedRows || updatedRows.length === 0) {
+      setError('تعذّر حفظ التغييرات: الصلاحيات لا تسمح بتحديث هذا الحساب');
       return;
     }
 
@@ -280,7 +303,7 @@ export default function ProfilePage() {
                 {saving ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}
               </motion.button>
               <button
-                onClick={() => nav('/judge')}
+                onClick={() => nav(authProfile ? getHomePathForRole(authProfile.role) : '/')}
                 className="px-5 py-3 border border-navy/15 text-navy/60 font-bold rounded-xl text-sm hover:border-navy/30 hover:text-navy transition-colors"
               >
                 رجوع

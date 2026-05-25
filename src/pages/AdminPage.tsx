@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/use-auth';
@@ -87,14 +87,13 @@ export default function AdminPage() {
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [projectsError, setProjectsError] = useState('');
 
-  const loadActiveTab = useEffectEvent(() => {
-    if (tab === 'applications') loadApplications();
-    if (tab === 'judges') loadUsers();
-    if (tab === 'projects') loadProjects();
-  });
-
   useEffect(() => {
-    loadActiveTab();
+    if (tab === 'applications') loadApplications();
+    else if (tab === 'judges') loadUsers();
+    else if (tab === 'projects') loadProjects();
+    // The loaders are stable closures over component state setters; we only
+    // want to re-trigger when the active tab changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
   async function loadApplications() {
@@ -124,11 +123,30 @@ export default function AdminPage() {
 
     setActingId(id);
     setAppsError('');
-    const { error } = await supabase.rpc('set_project_status', {
-      p_project_id: id,
-      p_status: status,
-      p_reason: reason,
-    });
+
+    const callRpc = (force: boolean) =>
+      supabase.rpc('set_project_status', {
+        p_project_id: id,
+        p_status: status,
+        p_reason: reason,
+        p_force: force,
+      });
+
+    let { error } = await callRpc(false);
+
+    // Server raises 42501 when the admin tries to undo an already-judged
+    // project — ask for explicit confirmation, then replay with p_force=true.
+    if (error && /submitted review/i.test(error.message)) {
+      const confirmed = window.confirm(
+        'هذا المشروع لديه تقييمات مُسلَّمة. متابعة التغيير ستُبقي التقييمات الحالية ولكنها لن تكون مرئية للحكّام حتى تعيد الموافقة. هل تريد المتابعة؟',
+      );
+      if (!confirmed) {
+        setActingId(null);
+        return;
+      }
+      ({ error } = await callRpc(true));
+    }
+
     setActingId(null);
 
     if (error) {
@@ -425,10 +443,13 @@ export default function AdminPage() {
     setRoleActingId(target.id);
     setJudgesError('');
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({ role, status: 'approved' })
-      .eq('id', target.id);
+    // Route through the SECURITY DEFINER RPC so the change is auditable and
+    // the user's `status` is not silently rewritten — a rejected user must be
+    // re-approved deliberately from the moderation buttons.
+    const { error } = await supabase.rpc('admin_set_user_role', {
+      p_user_id: target.id,
+      p_role: role,
+    });
 
     setRoleActingId(null);
 
@@ -438,7 +459,7 @@ export default function AdminPage() {
     }
 
     if (selectedJudge?.id === target.id) {
-      setSelectedJudge({ ...selectedJudge, role, status: 'approved' });
+      setSelectedJudge({ ...selectedJudge, role });
       if (role === 'admin') setJudgeReviews([]);
     }
 

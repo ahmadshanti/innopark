@@ -1,7 +1,7 @@
-import { useEffect, useEffectEvent, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import type { EvaluationData, DimensionScores, Submission } from '../types';
+import { useNavigate, useParams } from 'react-router-dom';
+import type { EvaluationData, DimensionScores } from '../types';
 import { calculateResults } from '../utils/scoring';
 import { useAuth } from '../lib/use-auth';
 import { useCriteria } from '../lib/criteria';
@@ -10,10 +10,6 @@ import StarRating from '../components/StarRating';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import ProjectFiles from '../components/ProjectFiles';
-
-interface EvaluationPageProps {
-  onComplete: (submission: Submission) => void;
-}
 
 const DIM_ICONS: Record<string, string> = {
   technology: '⚙️',
@@ -30,42 +26,36 @@ const DIM_SHORT: Record<string, string> = {
   impact: 'الأثر',
 };
 
-interface NavState { project?: { id: string } | null }
+function draftKey(projectId: string, judgeId: string) {
+  return `innopark.draft.${judgeId}.${projectId}`;
+}
 
-export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
+export default function EvaluationPage() {
   const nav = useNavigate();
-  const location = useLocation();
+  const { projectId } = useParams<{ projectId: string }>();
   const { session, profile } = useAuth();
   const { dimensions, loading: critLoading } = useCriteria();
 
-  const projectId = (location.state as NavState | null)?.project?.id ?? null;
+  const judgeId = session?.user.id ?? '';
   const judgeName = profile?.full_name?.trim() || session?.user.email || '';
 
   const [ctx, setCtx] = useState<ProjectWithReview | null>(null);
-  const [ctxError, setCtxError] = useState<string>('');
+  const [ctxError, setCtxError] = useState('');
   const [ctxLoading, setCtxLoading] = useState(true);
 
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [scores, setScores] = useState<Record<string, DimensionScores>>({});
 
   const DIM_KEYS = useMemo(() => dimensions.map((d) => d.key), [dimensions]);
   const dimCount = DIM_KEYS.length;
-  const startContextLoad = useEffectEvent(() => {
-    setCtxLoading(true);
-    setCtxError('');
-  });
-  const finishContextLoad = useEffectEvent(() => {
-    setCtxLoading(false);
-  });
-  const applyContext = useEffectEvent((data: ProjectWithReview) => {
-    setCtx(data);
-  });
-  const failContextLoad = useEffectEvent((message: string) => {
-    setCtxError(message);
-  });
+  const usingStaticFallback = useMemo(
+    () => dimensions.length > 0 && dimensions.every((d) => d.id.startsWith('static-')),
+    [dimensions],
+  );
 
   const STEPS = useMemo(() => {
     const steps: { id: number; label: string; icon: string; short: string }[] = [
@@ -83,29 +73,34 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
     return steps;
   }, [dimensions]);
 
-  // Fetch project + my review once per projectId — no per-step refetch.
+  // Load project + my review once per projectId.
   useEffect(() => {
     if (!projectId) return;
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCtxLoading(true);
+    setCtxError('');
     (async () => {
-      startContextLoad();
       try {
         const data = await loadProjectWithReview(projectId);
-        if (!cancelled) applyContext(data);
+        if (!cancelled) setCtx(data);
       } catch (e) {
-        if (!cancelled) failContextLoad(e instanceof Error ? e.message : 'تعذّر تحميل بيانات المشروع');
+        if (!cancelled) setCtxError(e instanceof Error ? e.message : 'تعذّر تحميل بيانات المشروع');
       } finally {
-        if (!cancelled) finishContextLoad();
+        if (!cancelled) setCtxLoading(false);
       }
     })();
     return () => { cancelled = true; };
   }, [projectId]);
 
-  const seededScores = useMemo(() => {
+  // Seed local scores from any saved review (draft or submitted) + sessionStorage backup.
+  const seededFromReview = useMemo<Record<string, DimensionScores>>(() => {
     if (!ctx?.myReview || dimensions.length === 0) return {};
     const idToName: Record<string, { key: string; name: string }> = {};
     dimensions.forEach((d) =>
-      Object.entries(d.criteriaIds).forEach(([name, id]) => { idToName[id] = { key: d.key, name }; }),
+      Object.entries(d.criteriaIds).forEach(([name, id]) => {
+        idToName[id] = { key: d.key, name };
+      }),
     );
     const seeded: Record<string, DimensionScores> = {};
     ctx.myReview.scores.forEach(({ criterion_id, score }) => {
@@ -115,81 +110,137 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
     });
     return seeded;
   }, [ctx, dimensions]);
-  const currentScores = Object.keys(scores).length > 0 ? scores : seededScores;
 
-  // ── derived ────────────────────────────────────────────────────────────
-  const editMode = !!ctx?.myReview;
+  // On first ctx load, hydrate local scores from review + any unsaved sessionStorage backup.
+  // Wait for criteria to finish loading — otherwise `seededFromReview` is built against
+  // the static FALLBACK's `static-*` ids and silently produces an empty seed, locking
+  // the form into "no prior scores" for the rest of the session.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (hydratedRef.current || !ctx || !projectId || !judgeId) return;
+    if (critLoading || usingStaticFallback) return;
+    hydratedRef.current = true;
+    let merged: Record<string, DimensionScores> = { ...seededFromReview };
+    try {
+      const raw = sessionStorage.getItem(draftKey(projectId, judgeId));
+      if (raw) {
+        const parsed = JSON.parse(raw) as Record<string, DimensionScores>;
+        merged = { ...merged, ...parsed };
+      }
+    } catch {
+      // ignore corrupt cache
+    }
+    setScores(merged);
+  }, [ctx, projectId, judgeId, seededFromReview, critLoading, usingStaticFallback]);
+
+  // Persist working scores to sessionStorage on every change.
+  useEffect(() => {
+    if (!projectId || !judgeId) return;
+    try {
+      sessionStorage.setItem(draftKey(projectId, judgeId), JSON.stringify(scores));
+    } catch {
+      // quota / disabled storage — silently ignore
+    }
+  }, [scores, projectId, judgeId]);
+
+  const editMode = !!ctx?.myReview?.submitted_at;
+  const isDraft = !!ctx?.myReview && !ctx.myReview.submitted_at;
   const dimKey = DIM_KEYS[step - 1];
   const currentDim = step >= 1 && step <= dimCount ? dimensions[step - 1] : null;
   const progress = STEPS.length > 1 ? Math.round((step / (STEPS.length - 1)) * 100) : 0;
 
   function updateScore(key: string, criterion: string, val: number) {
+    setScores((prev) => ({ ...prev, [key]: { ...(prev[key] ?? {}), [criterion]: val } }));
+  }
+
+  function clearScore(key: string, criterion: string) {
     setScores((prev) => {
-      const base = Object.keys(prev).length > 0 ? prev : currentScores;
-      return { ...base, [key]: { ...base[key], [criterion]: val } };
+      const dim = { ...(prev[key] ?? {}) };
+      delete dim[criterion];
+      return { ...prev, [key]: dim };
     });
   }
 
-  function validate(): boolean {
+  // Build the {criterion_id, score} payload from current scores, filtering out
+  // fallback (static-) ids since those aren't real DB rows.
+  const buildPayload = useCallback(() => {
+    return dimensions.flatMap((dim) =>
+      Object.entries(scores[dim.key] ?? {}).flatMap(([name, score]) => {
+        const cid = dim.criteriaIds[name];
+        if (!cid || cid.startsWith('static-') || score < 1 || score > 5) return [];
+        return [{ criterion_id: cid, score: score as 1 | 2 | 3 | 4 | 5 }];
+      }),
+    );
+  }, [dimensions, scores]);
+
+  function validateStep(): string[] {
     const errs: string[] = [];
     if (step >= 1 && step <= dimCount) {
       const dim = dimensions[step - 1];
-      const dimScores = currentScores[dim.key] || {};
+      const dimScores = scores[dim.key] ?? {};
       const unrated = dim.criteria.filter((c) => !dimScores[c]);
       if (unrated.length > 0) errs.push(`المعايير التالية لم تُقيَّم بعد: ${unrated.join(' ، ')}`);
     }
-    setErrors(errs);
-    return errs.length === 0;
+    return errs;
   }
 
-  function next() {
-    if (!validate()) return;
-    setErrors([]); setDir(1); setStep((s) => s + 1);
+  function validateAll(): string[] {
+    const errs: string[] = [];
+    dimensions.forEach((dim) => {
+      const dimScores = scores[dim.key] ?? {};
+      const unrated = dim.criteria.filter((c) => !dimScores[c]);
+      if (unrated.length > 0) errs.push(`${dim.nameAr}: ${unrated.join(' ، ')}`);
+    });
+    return errs;
+  }
+
+  async function persistDraft() {
+    if (!ctx || !projectId || usingStaticFallback) return;
+    const payload = buildPayload();
+    if (payload.length === 0) return;
+    setSavingDraft(true);
+    try {
+      await saveReview({ projectId: ctx.project.id, scores: payload, submit: false });
+    } catch (e) {
+      // best-effort: sessionStorage still has the working copy. Surface to
+      // devtools so a broken RPC doesn't go completely unnoticed.
+      console.warn('[innopark] draft save failed', e);
+    } finally {
+      setSavingDraft(false);
+    }
+  }
+
+  async function next() {
+    const errs = validateStep();
+    if (errs.length > 0) { setErrors(errs); return; }
+    setErrors([]); setDir(1);
+    // fire-and-forget draft save when stepping forward off a dimension
+    if (step >= 1 && step <= dimCount) void persistDraft();
+    setStep((s) => s + 1);
   }
   function prev() { setErrors([]); setDir(-1); setStep((s) => s - 1); }
 
   async function submit() {
-    if (submitting || !ctx) return;
+    if (submitting || !ctx || !projectId) return;
+    if (usingStaticFallback) {
+      setErrors(['لا توجد معايير معتمدة في النظام حالياً. تواصل مع الأدمن قبل إرسال التقييم.']);
+      return;
+    }
+    const allErrs = validateAll();
+    if (allErrs.length > 0) {
+      setErrors(['بعض المعايير لم تُقيَّم بعد:', ...allErrs]);
+      return;
+    }
     setSubmitting(true);
     setErrors([]);
     try {
-      const data: EvaluationData = {
-        projectInfo: {
-          projectName: ctx.project.project_name,
-          applicantName: ctx.project.applicant_name,
-          email: ctx.project.email,
-          department: ctx.project.department ?? '',
-          description: ctx.project.description ?? '',
-        },
-        ...Object.fromEntries(DIM_KEYS.map((k) => [k, currentScores[k] ?? {}])),
-      };
-      const results = calculateResults(data, dimensions);
-
-      // Flatten {dimKey → {critName → 1..5}} into [{criterion_id, score}] using real DB UUIDs.
-      // Fallback static IDs (prefixed "static-") are skipped — those only appear when the DB
-      // hasn't been seeded, in which case the RPC would reject the row anyway.
-      const flatScores = dimensions.flatMap((dim) =>
-        Object.entries(currentScores[dim.key] ?? {}).flatMap(([name, score]) => {
-          const cid = dim.criteriaIds[name];
-          if (!cid || cid.startsWith('static-') || score < 1 || score > 5) return [];
-          return [{ criterion_id: cid, score: score as 1 | 2 | 3 | 4 | 5 }];
-        }),
-      );
-
       await saveReview({
         projectId: ctx.project.id,
-        scores: flatScores,
-        finalScore: results.finalScore,
-        classification: results.classification,
+        scores: buildPayload(),
         submit: true,
       });
-
-      onComplete({
-        id: ctx.project.id,
-        date: new Date().toLocaleDateString('ar-SA'),
-        data,
-        results,
-      });
+      try { sessionStorage.removeItem(draftKey(projectId, judgeId)); } catch { /* ignore */ }
+      nav(`/results/${ctx.project.id}`, { replace: true });
     } catch (e) {
       setErrors([e instanceof Error ? e.message : 'تعذّر حفظ التقييم. حاول مرة أخرى.']);
     } finally {
@@ -203,8 +254,7 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
     exit: (d: number) => ({ x: d > 0 ? 60 : -60, opacity: 0 }),
   };
 
-  // ── conditional renders after all hooks ────────────────────────────────
-  if (!projectId) return <Navigate to="/judge" replace />;
+  if (!projectId) return null;
 
   if (ctxLoading || critLoading) {
     return (
@@ -224,9 +274,22 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
       </div>
     );
   }
-  if (!ctx) return <Navigate to="/judge" replace />;
+  if (!ctx) return null;
 
   const project = ctx.project;
+  const previewResults = calculateResults(
+    {
+      projectInfo: {
+        projectName: project.project_name,
+        applicantName: project.applicant_name,
+        email: project.email,
+        department: project.department ?? '',
+        description: project.description ?? '',
+      },
+      ...Object.fromEntries(DIM_KEYS.map((k) => [k, scores[k] ?? {}])),
+    } as EvaluationData,
+    dimensions,
+  );
 
   return (
     <div className="min-h-screen bg-cream flex flex-col" dir="rtl">
@@ -236,9 +299,18 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
         <motion.div className="h-full bg-gold" animate={{ width: `${progress}%` }} transition={{ duration: 0.4, ease: 'easeInOut' }} />
       </div>
 
-      {editMode && (
-        <div className="bg-gold/10 border-b border-gold/30 px-8 py-2 text-center">
-          <span className="text-sm font-bold text-navy/70">✏️ وضع التعديل — ستُحدَّث النتائج عند الإرسال</span>
+      {(editMode || isDraft) && (
+        <div className={`${editMode ? 'bg-gold/10 border-gold/30' : 'bg-navy/5 border-navy/15'} border-b px-8 py-2 text-center`}>
+          <span className="text-sm font-bold text-navy/70">
+            {editMode ? '✏️ وضع التعديل — ستُحدَّث النتائج عند الإرسال' : '📝 لديك مسودة محفوظة لهذا المشروع'}
+            {savingDraft && <span className="text-navy/40 mr-2">— جارٍ حفظ المسودة...</span>}
+          </span>
+        </div>
+      )}
+
+      {usingStaticFallback && (
+        <div className="bg-red-50 border-b border-red-200 px-8 py-2 text-center text-sm text-red-700 font-bold">
+          ⚠️ لا توجد معايير معتمدة في قاعدة البيانات — التقييم معطّل حتى يضيف الأدمن المعايير.
         </div>
       )}
 
@@ -329,8 +401,8 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
                   </div>
                   <div className="bg-navy rounded-2xl p-4 text-center min-w-[90px]">
                     <div className="text-2xl font-black text-gold">
-                      {Object.keys(currentScores[dimKey] || {}).length > 0
-                        ? (Object.values(currentScores[dimKey] || {}).reduce((a, b) => a + b, 0) / Object.keys(currentScores[dimKey] || {}).length).toFixed(1)
+                      {Object.keys(scores[dimKey] || {}).length > 0
+                        ? (Object.values(scores[dimKey] || {}).reduce((a, b) => a + b, 0) / Object.keys(scores[dimKey] || {}).length).toFixed(1)
                         : '—'}
                     </div>
                     <div className="text-white/40 text-xs mt-1">متوسط</div>
@@ -339,8 +411,9 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
                 <div className="bg-white rounded-2xl border border-navy/8 p-8">
                   {currentDim.criteria.map((criterion) => (
                     <StarRating key={criterion} criterion={criterion}
-                      value={(currentScores[dimKey] || {})[criterion] ?? 0}
+                      value={(scores[dimKey] || {})[criterion] ?? 0}
                       onChange={(val) => updateScore(dimKey, criterion, val)}
+                      onClear={() => clearScore(dimKey, criterion)}
                     />
                   ))}
                 </div>
@@ -365,21 +438,16 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
                 <div className="bg-white rounded-2xl border border-navy/8 p-6 mb-4">
                   <div className="text-xs font-bold text-navy/40 uppercase tracking-widest mb-4">درجات المحاور</div>
                   <div className="space-y-3">
-                    {dimensions.map((dim) => {
-                      const vals = Object.values(currentScores[dim.key] || {});
-                      const avg = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-                      const weighted = (avg / 5) * dim.weight;
-                      return (
-                        <div key={dim.key} className="flex items-center gap-4">
-                          <div className="w-36 text-sm font-medium text-navy/70">{dim.nameAr}</div>
-                          <div className="flex-1 h-2 bg-navy/6 rounded-full overflow-hidden">
-                            <div className="h-full bg-gold rounded-full transition-all duration-500" style={{ width: `${(avg / 5) * 100}%` }} />
-                          </div>
-                          <div className="text-sm font-bold text-navy w-10 text-left">{avg.toFixed(1)}/5</div>
-                          <div className="text-xs text-navy/40 w-16 text-left">{weighted.toFixed(1)} من {dim.weight}</div>
+                    {previewResults.dimensions.map((dim) => (
+                      <div key={dim.key} className="flex items-center gap-4">
+                        <div className="w-36 text-sm font-medium text-navy/70">{dim.nameAr}</div>
+                        <div className="flex-1 h-2 bg-navy/6 rounded-full overflow-hidden">
+                          <div className="h-full bg-gold rounded-full transition-all duration-500" style={{ width: `${(dim.avgScore / 5) * 100}%` }} />
                         </div>
-                      );
-                    })}
+                        <div className="text-sm font-bold text-navy w-10 text-left">{dim.avgScore}/5</div>
+                        <div className="text-xs text-navy/40 w-16 text-left">{dim.weightedScore} من {dim.weight}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
                 <div className="bg-navy rounded-2xl p-6 flex items-center justify-between">
@@ -388,11 +456,7 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
                     <div className="text-white text-sm">{editMode ? 'سيتم تحديث نتائج التقييم السابق' : 'بعد الإرسال ستحصل على تقرير مفصل كامل'}</div>
                   </div>
                   <div className="text-5xl font-black text-gold" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                    {dimensions.reduce((total, dim) => {
-                      const vals = Object.values(currentScores[dim.key] || {});
-                      const avg = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-                      return total + (avg / 5) * dim.weight;
-                    }, 0).toFixed(1)}
+                    {previewResults.finalScore.toFixed(1)}
                   </div>
                 </div>
               </div>
@@ -402,7 +466,7 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
 
         {errors.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="mt-4 bg-red-50 border border-red-200 rounded-xl p-4">
+            className="mt-4 bg-red-50 border border-red-200 rounded-xl p-4 space-y-1">
             {errors.map((e, i) => <div key={i} className="text-red-700 text-sm flex items-center gap-2">⚠️ {e}</div>)}
           </motion.div>
         )}
@@ -420,11 +484,13 @@ export default function EvaluationPage({ onComplete }: EvaluationPageProps) {
           </div>
           {step < STEPS.length - 1 ? (
             <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={next}
-              className="bg-gold text-navy font-black px-8 py-3 rounded-xl flex items-center gap-2">
+              disabled={usingStaticFallback}
+              className="bg-gold text-navy font-black px-8 py-3 rounded-xl flex items-center gap-2 disabled:opacity-50">
               التالي ←
             </motion.button>
           ) : (
-            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={submit} disabled={submitting}
+            <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={submit}
+              disabled={submitting || usingStaticFallback}
               className="bg-navy text-white font-black px-8 py-3 rounded-xl flex items-center gap-2 disabled:opacity-60">
               {submitting ? 'جارٍ الحفظ...' : editMode ? 'حفظ التعديلات ✓' : 'إرسال التقييم ✓'}
             </motion.button>

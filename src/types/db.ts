@@ -111,6 +111,7 @@ export interface JudgeProject {
   description: string | null;
   created_at: string;
   reviewed_by_me: boolean;
+  has_draft: boolean;
 }
 
 // --- RPC payloads ----------------------------------------------------

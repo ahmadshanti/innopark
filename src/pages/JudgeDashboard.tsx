@@ -14,6 +14,18 @@ const TYPE_LABEL: Record<JudgeProject['project_type'], string> = {
   team: 'فريق',
 };
 
+// Normalise common Arabic variants (alef forms, ya/alef-maksura, hamza, tatweel,
+// diacritics) so search "أحمد" matches "احمد".
+function normalizeArabic(s: string): string {
+  return s
+    .replace(/[ً-ْٰـ]/g, '')
+    .replace(/[إأآا]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/ؤ/g, 'و')
+    .replace(/ئ/g, 'ي');
+}
+
 export default function JudgeDashboard() {
   const nav = useNavigate();
   const { session, profile } = useAuth();
@@ -36,7 +48,7 @@ export default function JudgeDashboard() {
       const { data, error } = await supabase
         .from('judge_projects')
         .select(
-          'id, project_number, project_name, project_type, applicant_name, department, description, created_at, reviewed_by_me',
+          'id, project_number, project_name, project_type, applicant_name, department, description, created_at, reviewed_by_me, has_draft',
         )
         .order('project_number', { ascending: true });
 
@@ -59,30 +71,24 @@ export default function JudgeDashboard() {
   );
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = normalizeArabic(query.trim().toLowerCase());
     if (!q) return projects;
-    return projects.filter(p =>
-      p.project_name.toLowerCase().includes(q) ||
-      String(p.project_number).includes(q) ||
-      p.applicant_name.toLowerCase().includes(q),
-    );
+    return projects.filter(p => {
+      const haystack = normalizeArabic(
+        [
+          p.project_name,
+          String(p.project_number),
+          p.applicant_name,
+          p.department ?? '',
+          p.description ?? '',
+        ].join(' ').toLowerCase(),
+      );
+      return haystack.includes(q);
+    });
   }, [projects, query]);
 
   function openProject(p: JudgeProject) {
-    nav('/evaluation', {
-      state: {
-        project: {
-          id: p.id,
-          projectNumber: String(p.project_number),
-          projectName: p.project_name,
-          projectType: p.project_type,
-          applicantName: p.applicant_name,
-          department: p.department ?? '',
-          description: p.description ?? '',
-        },
-        editing: p.reviewed_by_me,
-      },
-    });
+    nav(`/evaluation/${p.id}`);
   }
 
   return (
@@ -196,6 +202,10 @@ export default function JudgeDashboard() {
                       <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#E1F5EE] text-[#0F6E56]">
                         ✓ قُيِّم
                       </span>
+                    ) : p.has_draft ? (
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#E6F1FB] text-[#185FA5]">
+                        📝 مسودة
+                      </span>
                     ) : (
                       <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#FAEEDA] text-[#854F0B]">
                         قيد التقييم
@@ -213,7 +223,7 @@ export default function JudgeDashboard() {
                           : 'bg-gold text-navy hover:bg-gold-dark'
                       }`}
                     >
-                      {p.reviewed_by_me ? '✏️ تعديل التقييم' : 'بدء التقييم ←'}
+                      {p.reviewed_by_me ? '✏️ تعديل التقييم' : p.has_draft ? 'متابعة المسودة ←' : 'بدء التقييم ←'}
                     </motion.button>
                   </div>
                 </motion.div>

@@ -60,12 +60,20 @@ export function CriteriaProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Fetch criteria on mount; the loader flips setState internally, which
+    // is the documented use case the lint rule complains about.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load();
   }, [load]);
 
   const dimensions = useMemo<DimensionView[]>(() => {
     const active = rawDimensions.filter((d) => d.is_active);
-    if (active.length === 0) return FALLBACK;
+    // Only fall back to the static set when the DB hasn't loaded yet
+    // (rawDimensions is empty). If the admin has deliberately disabled
+    // every dimension we must NOT swap in static IDs — those would fail
+    // upsert_review's UUID cast and silently break judge submissions.
+    if (rawDimensions.length === 0) return FALLBACK;
+    if (active.length === 0) return [];
     return active.map((d) => {
       const dimCrits = rawCriteria
         .filter((c) => c.dimension_id === d.id && c.is_active)
@@ -94,6 +102,9 @@ export function CriteriaProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Co-locating the hook with the provider keeps the criteria boundary in one
+// file; the only cost is that Fast Refresh can't hot-swap this file in dev.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useCriteria(): CriteriaContextValue {
   const v = useContext(Ctx);
   if (!v) throw new Error('useCriteria must be used inside <CriteriaProvider>');

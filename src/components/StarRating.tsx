@@ -3,6 +3,7 @@ import { STAR_LABELS } from '../types';
 interface SliderRatingProps {
   value: number;
   onChange: (val: number) => void;
+  onClear?: () => void;
   criterion: string;
 }
 
@@ -14,7 +15,7 @@ const COLORS: Record<number, { bg: string; text: string; border: string }> = {
   5: { bg: '#E6F1FB', text: '#185FA5', border: '#85B7EB' },
 };
 
-export default function SliderRating({ value, onChange, criterion }: SliderRatingProps) {
+export default function SliderRating({ value, onChange, onClear, criterion }: SliderRatingProps) {
   const rated = value > 0;
   const color = rated ? COLORS[value] : null;
   const pct = rated ? ((value - 1) / 4) * 100 : 0;
@@ -23,18 +24,32 @@ export default function SliderRating({ value, onChange, criterion }: SliderRatin
     <div className="py-5 border-b border-navy/6 last:border-0">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-semibold text-navy/80">{criterion}</span>
-        {rated ? (
-          <span
-            className="text-xs font-bold px-3 py-1 rounded-full transition-all duration-300"
-            style={{ background: color!.bg, color: color!.text, border: `1px solid ${color!.border}` }}
-          >
-            {value}/5 — {STAR_LABELS[value]}
-          </span>
-        ) : (
-          <span className="text-xs font-bold px-3 py-1 rounded-full bg-navy/6 text-navy/35 border border-navy/10">
-            لم يُقيَّم
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {rated ? (
+            <>
+              <span
+                className="text-xs font-bold px-3 py-1 rounded-full transition-all duration-300"
+                style={{ background: color!.bg, color: color!.text, border: `1px solid ${color!.border}` }}
+              >
+                {value}/5 — {STAR_LABELS[value]}
+              </span>
+              {onClear && (
+                <button
+                  type="button"
+                  onClick={onClear}
+                  title="إلغاء التقييم"
+                  className="text-xs text-navy/40 hover:text-red-500 transition-colors"
+                >
+                  ✕
+                </button>
+              )}
+            </>
+          ) : (
+            <span className="text-xs font-bold px-3 py-1 rounded-full bg-navy/6 text-navy/35 border border-navy/10">
+              لم يُقيَّم
+            </span>
+          )}
+        </div>
       </div>
 
       {!rated ? (

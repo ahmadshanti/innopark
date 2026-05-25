@@ -48,7 +48,7 @@ function formatSize(bytes: number): string {
 }
 
 function sanitizeFileName(name: string): string {
-  return name.replace(/[^\w.\-]+/g, '_').slice(0, 120);
+  return name.replace(/[^\w.-]+/g, '_').slice(0, 120);
 }
 
 export default function ApplyProjectPage() {

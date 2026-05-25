@@ -55,6 +55,10 @@ export default function CriteriaAdmin() {
       setOpError("المفتاح والاسم العربي مطلوبان");
       return;
     }
+    if (!(draftDim.weight > 0 && draftDim.weight <= 100)) {
+      setOpError("الوزن يجب أن يكون رقمًا بين 1 و 100");
+      return;
+    }
     setSaving("new-dim");
     setOpError("");
     const { error: e } = await supabase.from("dimensions").insert({
@@ -259,7 +263,12 @@ export default function CriteriaAdmin() {
                     value={String(d.weight)}
                     onCommit={(v) => {
                       const n = Number(v);
-                      if (!isNaN(n) && n !== Number(d.weight)) saveDim(d, { weight: n });
+                      if (isNaN(n) || n === Number(d.weight)) return;
+                      if (!(n > 0 && n <= 100)) {
+                        setOpError("الوزن يجب أن يكون رقمًا بين 1 و 100");
+                        return;
+                      }
+                      saveDim(d, { weight: n });
                     }}
                     ltr
                   />
@@ -409,6 +418,10 @@ function FieldInline({
   className?: string; ltr?: boolean;
 }) {
   const [local, setLocal] = useState(value);
+  // Re-sync the editable buffer when the parent's authoritative value changes
+  // (e.g. after a successful save). This is the canonical controlled→local
+  // sync pattern.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setLocal(value), [value]);
   return (
     <div className={className}>

@@ -17,10 +17,16 @@ export default function Hero({ onApply }: HeroProps) {
   return (
     <section className="relative min-h-screen bg-cream overflow-hidden flex flex-col">
 
+      {/* Background building image (behind everything) */}
+      <div className="hero-building-bg" aria-hidden="true">
+        <img src="/innoparkbuilding.webp" alt="" className="hero-building-bg__img" />
+        <div className="hero-building-bg__veil" />
+      </div>
+
       {/* Background circuit rings */}
       <div className="absolute inset-0 pointer-events-none select-none">
         <svg
-          className="absolute -left-32 top-1/2 -translate-y-1/2 opacity-[0.05]"
+          className="absolute -left-32 top-1/2 -translate-y-1/2 opacity-[0.18]"
           width="700" height="700" viewBox="0 0 700 700"
         >
           <circle cx="350" cy="350" r="340" fill="none" stroke="#1B3A7A" strokeWidth="1.5" />
@@ -36,7 +42,7 @@ export default function Hero({ onApply }: HeroProps) {
           <circle cx="110" cy="590" r="4" fill="#F5A623" />
         </svg>
         {/* dot grid top-left */}
-        <svg className="absolute top-0 left-0 opacity-[0.035]" width="280" height="280" viewBox="0 0 280 280">
+        <svg className="absolute top-0 left-0 opacity-[0.12]" width="280" height="280" viewBox="0 0 280 280">
           {Array.from({ length: 9 }).map((_, row) =>
             Array.from({ length: 9 }).map((_, col) => (
               <circle key={`${row}-${col}`} cx={col * 30 + 15} cy={row * 30 + 15} r="1.5" fill="#1B3A7A" />
@@ -85,7 +91,7 @@ export default function Hero({ onApply }: HeroProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.75, duration: 0.6 }}
-            className="text-navy/55 text-base md:text-lg leading-relaxed mb-8 md:mb-10 max-w-md"
+            className="text-navy/85 font-medium text-base md:text-lg leading-relaxed mb-8 md:mb-10 max-w-md"
           >
             منظومة علمية متكاملة تقيّم مشاريع الابتكار داخل الجامعة وحديقة الابتكار عبر خمسة محاور دقيقة، وتقدم توصية واضحة لكل مرحلة.
           </motion.p>
@@ -124,7 +130,7 @@ export default function Hero({ onApply }: HeroProps) {
                     };
                     requestAnimationFrame(step);
                   }
-                }} className="text-navy/60 hover:text-navy font-medium text-sm md:text-base border border-navy/15 hover:border-navy/30 px-4 md:px-6 py-3 md:py-4 rounded-xl transition-all min-h-[44px]">
+                }} className="text-navy hover:text-white font-semibold text-sm md:text-base bg-navy/5 hover:bg-navy border border-navy/40 hover:border-navy px-4 md:px-6 py-3 md:py-4 rounded-xl transition-all min-h-[44px] backdrop-blur-sm">
               تعرّف على المعايير
             </button>
           </motion.div>
@@ -137,14 +143,14 @@ export default function Hero({ onApply }: HeroProps) {
           <motion.div
             animate={{ rotate: [0, 360] }}
             transition={{ duration: 30, repeat: Infinity, ease: 'linear', repeatType: 'loop' }}
-            className="absolute w-[200px] h-[200px] md:w-[400px] md:h-[400px] rounded-full border border-dashed border-navy/10"
+            className="absolute w-[200px] h-[200px] md:w-[400px] md:h-[400px] rounded-full border border-dashed border-navy/35"
           />
           <motion.div
             animate={{ rotate: [0, -360] }}
             transition={{ duration: 22, repeat: Infinity, ease: 'linear', repeatType: 'loop' }}
-            className="absolute w-[150px] h-[150px] md:w-[300px] md:h-[300px] rounded-full border border-dashed border-gold/15"
+            className="absolute w-[150px] h-[150px] md:w-[300px] md:h-[300px] rounded-full border border-dashed border-gold/50"
           />
-          <div className="absolute w-[105px] h-[105px] md:w-[210px] md:h-[210px] rounded-full border border-navy/8" />
+          <div className="absolute w-[105px] h-[105px] md:w-[210px] md:h-[210px] rounded-full border border-navy/25" />
 
           {/* Orbiting gold dot */}
           <motion.div
@@ -224,7 +230,7 @@ export default function Hero({ onApply }: HeroProps) {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 1.1, duration: 0.6 }}
-        className="relative z-10 border-t border-navy/8 mt-8"
+        className="relative z-10 border-t border-navy/8 mt-8 bg-cream"
       >
         <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4">
           {stats.map((s, i) => (

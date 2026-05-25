@@ -57,6 +57,12 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: 'الاسم والبريد وكلمة المرور مطلوبة' }, 400);
     }
 
+    // Basic RFC-5322-ish shape check — Supabase will also validate, but
+    // returning a clear Arabic message here avoids leaking provider errors.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return jsonResponse({ error: 'صيغة البريد الإلكتروني غير صحيحة' }, 400);
+    }
+
     if (password.length < 8) {
       return jsonResponse({ error: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' }, 400);
     }
@@ -72,14 +78,21 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: createError?.message ?? 'فشل إنشاء المستخدم' }, 400);
     }
 
+    // The handle_new_auth_user() trigger may have already inserted a row
+    // with role='judge' status='approved' (because created_by_admin=true is
+    // in user_metadata). Explicit onConflict + update guarantees the
+    // requested role/status win regardless of trigger ordering.
     const { error: upsertError } = await adminClient
       .from('profiles')
-      .upsert({
-        id: createdUser.user.id,
-        full_name: fullName,
-        role,
-        status: 'approved',
-      });
+      .upsert(
+        {
+          id: createdUser.user.id,
+          full_name: fullName,
+          role,
+          status: 'approved',
+        },
+        { onConflict: 'id' },
+      );
 
     if (upsertError) {
       await adminClient.auth.admin.deleteUser(createdUser.user.id);

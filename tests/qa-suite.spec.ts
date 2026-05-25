@@ -60,11 +60,6 @@ async function loginAsAdmin(page: Page) {
   await expect(page).toHaveURL(`${BASE}/admin`, { timeout: 15000 });
 }
 
-async function clickNavLink(page: Page, text: RegExp | string) {
-  // Desktop links live in the header; on mobile they're inside the dropdown.
-  const link = page.getByRole('button', { name: text }).first();
-  await link.click();
-}
 
 function expectVisible(loc: Locator) {
   return expect(loc).toBeVisible({ timeout: 5000 });
