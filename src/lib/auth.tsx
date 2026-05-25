@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, role, status, phone, department, bio, created_at')
+        .select('id, full_name, role, status, phone, department, bio, avatar_url, created_at')
         .eq('id', s.user.id)
         .maybeSingle();
       if (!active) return;

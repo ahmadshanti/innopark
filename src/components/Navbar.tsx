@@ -13,6 +13,7 @@ const NAV_LINKS = [
   { label: "عن النظام", id: "how", path: null },
   { label: "آلية العمل", id: null, path: "/how-it-works" },
   { label: "خطة التنفيذ", id: null, path: "/implementation" },
+  { label: "الحكّام", id: null, path: "/judges" },
 ];
 
 function smoothScroll(targetY: number) {
@@ -36,7 +37,7 @@ export default function Navbar({ isStatic = false }: { isStatic?: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { session, profile } = useAuth();
+  const { session, profile, signOut } = useAuth();
   const isHome = location.pathname === "/";
   const userRole: UserRole =
     session && isAdminProfile(profile)
@@ -142,7 +143,7 @@ export default function Navbar({ isStatic = false }: { isStatic?: boolean }) {
             </button>
           )}
 
-          {/* Judge: "تقييماتي" + "ابدأ التقييم" */}
+          {/* Judge: dashboard + avatar + logout */}
           {userRole === "judge" && (
             <>
               <button
@@ -154,33 +155,72 @@ export default function Navbar({ isStatic = false }: { isStatic?: boolean }) {
                     : "text-navy/60 hover:text-navy hover:bg-navy/5"
                 }`}
               >
-                تقييماتي
+                لوحتي
               </button>
-              <motion.button
+              <button
                 type="button"
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => navigate("/evaluation")}
-                className="bg-gold hover:bg-gold-dark text-navy font-bold text-xs md:text-sm px-3 md:px-5 py-2 md:py-2.5 rounded-lg transition-colors duration-200 flex items-center gap-1.5 min-h-[44px]"
+                onClick={() => navigate("/profile")}
+                title="الملف الشخصي"
+                className="w-9 h-9 rounded-full overflow-hidden border-2 border-navy/20 hover:border-navy/50 transition-all flex-shrink-0"
               >
-                ابدأ التقييم
-              </motion.button>
+                <img
+                  src={profile?.avatar_url || "/logo.webp"}
+                  alt="الملف الشخصي"
+                  className="w-full h-full object-cover"
+                />
+              </button>
+              <button
+                type="button"
+                onClick={() => { signOut(); navigate("/"); }}
+                className={`hidden md:block text-sm font-medium px-3 py-2 rounded-lg transition-all duration-200 ${
+                  isStatic
+                    ? "text-white/40 hover:text-red-400"
+                    : "text-navy/40 hover:text-red-500"
+                }`}
+              >
+                خروج
+              </button>
             </>
           )}
 
-          {/* Admin: "لوحة التحكم" */}
+          {/* Admin: dashboard + avatar + logout */}
           {userRole === "admin" && (
-            <button
-              type="button"
-              onClick={() => navigate("/admin")}
-              className={`hidden md:block text-sm font-medium px-4 py-2 rounded-lg transition-all duration-200 ${
-                isStatic
-                  ? "text-white/60 hover:text-white hover:bg-white/10"
-                  : "text-navy/60 hover:text-navy hover:bg-navy/5"
-              }`}
-            >
-              لوحة التحكم
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => navigate("/admin")}
+                className={`hidden md:block text-sm font-medium px-4 py-2 rounded-lg transition-all duration-200 ${
+                  isStatic
+                    ? "text-white/60 hover:text-white hover:bg-white/10"
+                    : "text-navy/60 hover:text-navy hover:bg-navy/5"
+                }`}
+              >
+                لوحة التحكم
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/admin-profile")}
+                title="الملف الشخصي"
+                className="w-9 h-9 rounded-full overflow-hidden border-2 border-navy/20 hover:border-navy/50 transition-all flex-shrink-0"
+              >
+                <img
+                  src={profile?.avatar_url || "/logo.webp"}
+                  alt="الملف الشخصي"
+                  className="w-full h-full object-cover"
+                />
+              </button>
+              <button
+                type="button"
+                onClick={() => { signOut(); navigate("/"); }}
+                className={`hidden md:block text-sm font-medium px-3 py-2 rounded-lg transition-all duration-200 ${
+                  isStatic
+                    ? "text-white/40 hover:text-red-400"
+                    : "text-navy/40 hover:text-red-500"
+                }`}
+              >
+                خروج
+              </button>
+            </>
           )}
 
           <button
@@ -264,44 +304,71 @@ export default function Navbar({ isStatic = false }: { isStatic?: boolean }) {
               {userRole === "judge" && (
                 <>
                   <button
-                    onClick={() => {
-                      setMobileOpen(false);
-                      navigate("/judge");
-                    }}
+                    onClick={() => { setMobileOpen(false); navigate("/judge"); }}
                     className={`w-full text-right px-4 py-3 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
                       isStatic
                         ? "text-white/70 hover:text-white hover:bg-white/10"
                         : "text-navy/70 hover:text-navy hover:bg-navy/5"
                     }`}
                   >
-                    تقييماتي
+                    لوحتي
                   </button>
                   <button
-                    onClick={() => {
-                      setMobileOpen(false);
-                      navigate("/evaluation");
-                    }}
-                    className="w-full text-right px-4 py-3 rounded-xl text-sm font-bold bg-gold text-navy min-h-[44px]"
+                    onClick={() => { setMobileOpen(false); navigate("/profile"); }}
+                    className={`w-full text-right px-4 py-3 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
+                      isStatic
+                        ? "text-white/70 hover:text-white hover:bg-white/10"
+                        : "text-navy/70 hover:text-navy hover:bg-navy/5"
+                    }`}
                   >
-                    ابدأ التقييم
+                    الملف الشخصي
+                  </button>
+                  <button
+                    onClick={() => { setMobileOpen(false); signOut(); navigate("/"); }}
+                    className={`w-full text-right px-4 py-3 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
+                      isStatic
+                        ? "text-white/40 hover:text-red-400 hover:bg-white/10"
+                        : "text-red-500/70 hover:text-red-600 hover:bg-red-50"
+                    }`}
+                  >
+                    خروج
                   </button>
                 </>
               )}
 
               {userRole === "admin" && (
-                <button
-                  onClick={() => {
-                    setMobileOpen(false);
-                    navigate("/admin");
-                  }}
-                  className={`w-full text-right px-4 py-3 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
-                    isStatic
-                      ? "text-white/50 hover:text-white hover:bg-white/10"
-                      : "text-navy/50 hover:text-navy hover:bg-navy/5"
-                  }`}
-                >
-                  لوحة التحكم
-                </button>
+                <>
+                  <button
+                    onClick={() => { setMobileOpen(false); navigate("/admin"); }}
+                    className={`w-full text-right px-4 py-3 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
+                      isStatic
+                        ? "text-white/70 hover:text-white hover:bg-white/10"
+                        : "text-navy/70 hover:text-navy hover:bg-navy/5"
+                    }`}
+                  >
+                    لوحة التحكم
+                  </button>
+                  <button
+                    onClick={() => { setMobileOpen(false); navigate("/admin-profile"); }}
+                    className={`w-full text-right px-4 py-3 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
+                      isStatic
+                        ? "text-white/70 hover:text-white hover:bg-white/10"
+                        : "text-navy/70 hover:text-navy hover:bg-navy/5"
+                    }`}
+                  >
+                    الملف الشخصي
+                  </button>
+                  <button
+                    onClick={() => { setMobileOpen(false); signOut(); navigate("/"); }}
+                    className={`w-full text-right px-4 py-3 rounded-xl text-sm font-medium transition-colors min-h-[44px] ${
+                      isStatic
+                        ? "text-white/40 hover:text-red-400 hover:bg-white/10"
+                        : "text-red-500/70 hover:text-red-600 hover:bg-red-50"
+                    }`}
+                  >
+                    خروج
+                  </button>
+                </>
               )}
             </div>
           </motion.div>

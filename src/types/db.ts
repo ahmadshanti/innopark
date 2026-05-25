@@ -15,6 +15,8 @@ export interface Profile {
   phone: string | null;
   department: string | null;
   bio: string | null;
+  avatar_url: string | null;
+  visible_on_page: boolean;
   created_at: string;
 }
 

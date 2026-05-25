@@ -135,21 +135,21 @@ export default function Hero({ onApply }: HeroProps) {
 
           {/* Rotating rings */}
           <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 30, repeat: Infinity, ease: 'linear' }}
+            animate={{ rotate: [0, 360] }}
+            transition={{ duration: 30, repeat: Infinity, ease: 'linear', repeatType: 'loop' }}
             className="absolute w-[200px] h-[200px] md:w-[400px] md:h-[400px] rounded-full border border-dashed border-navy/10"
           />
           <motion.div
-            animate={{ rotate: -360 }}
-            transition={{ duration: 22, repeat: Infinity, ease: 'linear' }}
+            animate={{ rotate: [0, -360] }}
+            transition={{ duration: 22, repeat: Infinity, ease: 'linear', repeatType: 'loop' }}
             className="absolute w-[150px] h-[150px] md:w-[300px] md:h-[300px] rounded-full border border-dashed border-gold/15"
           />
           <div className="absolute w-[105px] h-[105px] md:w-[210px] md:h-[210px] rounded-full border border-navy/8" />
 
           {/* Orbiting gold dot */}
           <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+            animate={{ rotate: [0, 360] }}
+            transition={{ duration: 8, repeat: Infinity, ease: 'linear', repeatType: 'loop' }}
             className="absolute w-[160px] h-[160px] md:w-[320px] md:h-[320px]"
             style={{ transformOrigin: 'center' }}
           >
@@ -161,8 +161,8 @@ export default function Hero({ onApply }: HeroProps) {
 
           {/* Orbiting navy dot */}
           <motion.div
-            animate={{ rotate: -360 }}
-            transition={{ duration: 14, repeat: Infinity, ease: 'linear' }}
+            animate={{ rotate: [0, -360] }}
+            transition={{ duration: 14, repeat: Infinity, ease: 'linear', repeatType: 'loop' }}
             className="absolute w-[190px] h-[190px] md:w-[380px] md:h-[380px]"
             style={{ transformOrigin: 'center' }}
           >
@@ -175,13 +175,13 @@ export default function Hero({ onApply }: HeroProps) {
           {/* Logo floating */}
           <motion.div
             animate={{ y: [0, -14, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', repeatType: 'loop' }}
             className="relative z-10"
           >
             {/* Soft glow */}
             <motion.div
               animate={{ scale: [1, 1.15, 1], opacity: [0.12, 0.22, 0.12] }}
-              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut', repeatType: 'loop' }}
               style={{
                 position: 'absolute', inset: '-20px',
                 borderRadius: '50%',

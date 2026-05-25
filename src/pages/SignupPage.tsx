@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
@@ -11,8 +11,23 @@ export default function SignupPage() {
   const [bio, setBio] = useState('');
   const [phone, setPhone] = useState('');
   const [department, setDepartment] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setError('حجم الصورة يجب أن يكون أقل من 2MB');
+      return;
+    }
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+    setError('');
+  }
 
   async function handleSignup() {
     if (!fullName.trim() || !email.trim() || !password.trim() || !bio.trim()) {
@@ -46,6 +61,21 @@ export default function SignupPage() {
       return;
     }
 
+    const userId = data.user?.id;
+
+    if (userId && avatarFile && data.session) {
+      const ext = avatarFile.name.split('.').pop();
+      const path = `${userId}/avatar.${ext}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, avatarFile, { upsert: true });
+
+      if (!uploadError && uploadData) {
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+        await supabase.from('profiles').update({ avatar_url: urlData.publicUrl }).eq('id', userId);
+      }
+    }
+
     // Sign out immediately — user must wait for admin approval before logging in.
     if (data.session) await supabase.auth.signOut();
 
@@ -76,6 +106,33 @@ export default function SignupPage() {
         <p className="text-navy/40 text-sm mb-6">سيتم مراجعة طلبك من قبل الأدمن قبل التفعيل</p>
 
         <div className="space-y-4">
+          {/* Avatar upload */}
+          <div className="flex flex-col items-center gap-2 pb-2">
+            <div
+              className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-navy/10 cursor-pointer group"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <img
+                src={avatarPreview || '/logo.webp'}
+                alt="صورة الحكّم"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-navy/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span className="text-white text-xl">📷</span>
+              </div>
+            </div>
+            <span className="text-xs text-navy/40">
+              {avatarFile ? avatarFile.name : 'اضغط لرفع صورة (اختياري)'}
+            </span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+          </div>
+
           <div>
             <label className="block text-sm font-bold text-navy/60 mb-2">
               الاسم الكامل <span className="text-red-500">*</span>

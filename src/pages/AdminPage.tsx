@@ -1,6 +1,5 @@
 import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/use-auth';
 import Navbar from '../components/Navbar';
@@ -55,8 +54,7 @@ const LEVEL_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export default function AdminPage() {
-  const nav = useNavigate();
-  const { signOut, profile } = useAuth();
+  const { profile } = useAuth();
   const [tab, setTab] = useState<Tab>('applications');
 
   const [apps, setApps] = useState<AppRow[]>([]);
@@ -71,6 +69,7 @@ export default function AdminPage() {
   const [judgesError, setJudgesError] = useState('');
   const [judgeEvalCounts, setJudgeEvalCounts] = useState<Record<string, number>>({});
   const [roleActingId, setRoleActingId] = useState<string | null>(null);
+  const [visibilityActingId, setVisibilityActingId] = useState<string | null>(null);
   const [usersFilter, setUsersFilter] = useState<UserStatusFilter>('pending');
   const [statusActingId, setStatusActingId] = useState<string | null>(null);
   const [creatingUser, setCreatingUser] = useState(false);
@@ -361,6 +360,20 @@ export default function AdminPage() {
     return 'عالي النضج';
   }
 
+  async function toggleVisibility(target: Profile) {
+    setVisibilityActingId(target.id);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ visible_on_page: !target.visible_on_page })
+      .eq('id', target.id);
+    setVisibilityActingId(null);
+    if (error) {
+      setJudgesError(error.message || 'تعذّر تحديث الظهور');
+      return;
+    }
+    await loadUsers();
+  }
+
   async function updateUserStatus(target: Profile, status: UserStatus) {
     if (target.id === profile?.id) {
       setJudgesError('لا يمكنك تعديل حالة حسابك الحالي');
@@ -473,10 +486,6 @@ export default function AdminPage() {
     await loadUsers();
   }
 
-  async function handleLogout() {
-    await signOut();
-    nav('/');
-  }
 
   function renderRolePill(role: Profile['role']) {
     return role === 'admin' ? (
@@ -514,12 +523,6 @@ export default function AdminPage() {
               <div className="text-white/40 text-sm mb-1">INNOPARK — لوحة التحكم</div>
               <h1 className="text-2xl md:text-3xl font-black text-white">إدارة النظام</h1>
             </div>
-            <button
-              onClick={handleLogout}
-              className="text-white/40 hover:text-red-400 text-sm transition-colors flex items-center gap-1"
-            >
-              🚪 خروج
-            </button>
           </div>
           <div className="flex gap-2 flex-wrap">
             {(['applications', 'judges', 'projects', 'criteria'] as Tab[]).map((currentTab) => (
@@ -1073,6 +1076,20 @@ export default function AdminPage() {
                             className="text-xs border border-navy/15 text-navy/70 font-bold px-3 py-1.5 rounded-lg hover:border-navy/30 hover:text-navy disabled:opacity-50"
                           >
                             {roleActingId === judge.id ? '...' : 'إرجاعه حكم'}
+                          </button>
+                        )}
+                        {judge.role === 'judge' && judge.status === 'approved' && (
+                          <button
+                            onClick={() => toggleVisibility(judge)}
+                            disabled={visibilityActingId === judge.id}
+                            title={judge.visible_on_page ? 'إخفاء من صفحة الحكّام' : 'إظهار في صفحة الحكّام'}
+                            className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 ${
+                              judge.visible_on_page
+                                ? 'bg-emerald-500 text-white hover:bg-emerald-600'
+                                : 'bg-navy/10 text-navy/50 hover:bg-navy/20'
+                            }`}
+                          >
+                            {visibilityActingId === judge.id ? '...' : judge.visible_on_page ? '● ظاهر' : '○ مخفي'}
                           </button>
                         )}
                         {judge.id === profile?.id && (

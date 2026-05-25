@@ -16,7 +16,7 @@ const TYPE_LABEL: Record<JudgeProject['project_type'], string> = {
 
 export default function JudgeDashboard() {
   const nav = useNavigate();
-  const { session, profile, signOut } = useAuth();
+  const { session, profile } = useAuth();
 
   const [projects, setProjects] = useState<JudgeProject[]>([]);
   const [state, setState] = useState<LoadState>('loading');
@@ -25,6 +25,7 @@ export default function JudgeDashboard() {
 
   const judgeName = profile?.full_name?.trim() || session?.user.email || '';
   const judgeEmail = session?.user.email ?? '';
+
 
   useEffect(() => {
     if (!session) return;
@@ -67,11 +68,6 @@ export default function JudgeDashboard() {
     );
   }, [projects, query]);
 
-  async function handleLogout() {
-    await signOut();
-    nav('/');
-  }
-
   function openProject(p: JudgeProject) {
     nav('/evaluation', {
       state: {
@@ -101,20 +97,12 @@ export default function JudgeDashboard() {
             <h1 className="text-2xl md:text-3xl font-black text-white">مرحباً، {judgeName}</h1>
             <div className="text-white/40 text-sm mt-1">{judgeEmail}</div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-center bg-white/8 rounded-xl p-4">
-              <div className="text-3xl font-black text-gold" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
-                {reviewedCount}
-                <span className="text-white/30 text-lg"> / {projects.length}</span>
-              </div>
-              <div className="text-white/40 text-xs mt-1">مشاريع قُيِّمت</div>
+          <div className="text-center bg-white/8 rounded-xl p-4">
+            <div className="text-3xl font-black text-gold" style={{ fontFamily: "'Space Grotesk',sans-serif" }}>
+              {reviewedCount}
+              <span className="text-white/30 text-lg"> / {projects.length}</span>
             </div>
-            <button
-              onClick={handleLogout}
-              className="text-white/40 hover:text-red-400 text-sm transition-colors"
-            >
-              🚪 خروج
-            </button>
+            <div className="text-white/40 text-xs mt-1">مشاريع قُيِّمت</div>
           </div>
         </div>
       </div>

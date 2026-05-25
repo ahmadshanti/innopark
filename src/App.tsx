@@ -12,6 +12,8 @@ import SignupPage from './pages/SignupPage';
 import HowItWorksPage from './pages/HowItWorksPage';
 import JudgeDashboard from './pages/JudgeDashboard';
 import ImplementationPage from './pages/ImplementationPage';
+import JudgesPage from './pages/JudgesPage';
+import ProfilePage from './pages/ProfilePage';
 import { AuthProvider, RequireRole } from './lib/auth';
 import { CriteriaProvider } from './lib/criteria';
 import type { Submission } from './types';
@@ -29,6 +31,27 @@ function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/apply" element={<ApplyProjectPage />} />
+      <Route path="/judges" element={<JudgesPage />} />
+
+      {/* Judge profile */}
+      <Route
+        path="/profile"
+        element={
+          <RequireRole role="judge">
+            <ProfilePage />
+          </RequireRole>
+        }
+      />
+
+      {/* Admin profile */}
+      <Route
+        path="/admin-profile"
+        element={
+          <RequireRole role="admin">
+            <ProfilePage />
+          </RequireRole>
+        }
+      />
 
       {/* Judge-only — must arrive with a project picked from the dashboard */}
       <Route
@@ -83,7 +106,7 @@ function RequireProjectContext({ children }: { children: ReactElement }) {
 }
 
 export default function App() {
-  const reducedMotion = typeof navigator !== 'undefined' && navigator.webdriver ? 'always' : 'user';
+  const reducedMotion = typeof navigator !== 'undefined' && navigator.webdriver ? 'always' : 'never';
 
   return (
     <div dir="rtl">
