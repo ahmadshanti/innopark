@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../lib/use-auth';
+import { isAdminProfile, isJudgeProfile } from '../lib/authorization';
 
 const steps = [
   {
@@ -49,6 +51,8 @@ const steps = [
 
 export default function HowItWorksPage() {
   const nav = useNavigate();
+  const { session, profile } = useAuth();
+  const isLoggedIn = session && (isAdminProfile(profile) || isJudgeProfile(profile));
 
   return (
     <div className="min-h-screen bg-cream flex flex-col">
@@ -109,23 +113,25 @@ export default function HowItWorksPage() {
           </div>
         </div>
 
-        {/* CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mt-16 bg-navy rounded-2xl p-8 text-center"
-        >
-          <h2 className="text-2xl font-black text-white mb-3">مشروعك جاهز للتقييم؟</h2>
-          <p className="text-white/40 mb-6">ابدأ الآن وستحصل على تقرير مفصل خلال دقائق</p>
-          <motion.button
-            whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
-            onClick={() => nav('/evaluation')}
-            className="bg-gold text-navy font-black px-8 py-3 rounded-xl text-lg"
+        {/* CTA — visitors only */}
+        {!isLoggedIn && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mt-16 bg-navy rounded-2xl p-8 text-center"
           >
-            ابدأ التقييم الآن ←
-          </motion.button>
-        </motion.div>
+            <h2 className="text-2xl font-black text-white mb-3">مشروعك جاهز للتقييم؟</h2>
+            <p className="text-white/40 mb-6">ابدأ الآن وستحصل على تقرير مفصل خلال دقائق</p>
+            <motion.button
+              whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.97 }}
+              onClick={() => nav('/apply')}
+              className="bg-gold text-navy font-black px-8 py-3 rounded-xl text-lg"
+            >
+              قدّم مشروعك الآن ←
+            </motion.button>
+          </motion.div>
+        )}
       </div>
 
       <footer className="bg-[#0f1e47] py-5 px-4 md:px-8 flex-shrink-0">

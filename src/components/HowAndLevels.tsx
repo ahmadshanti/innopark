@@ -1,6 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useReveal } from '../hooks/useReveal';
+import { useAuth } from '../lib/use-auth';
+import { isAdminProfile, isJudgeProfile } from '../lib/authorization';
 
 const steps = [
   { n: '01', icon: '📋', title: 'بيانات المشروع', desc: 'أدخل اسم مشروعك وبياناتك الأساسية ووصفاً مختصراً للفكرة' },
@@ -23,6 +25,8 @@ export default function HowAndLevels({ onApply }: HowAndLevelsProps) {
   const refHow = useReveal();
   const refLevels = useReveal();
   const refCta = useReveal();
+  const { session, profile } = useAuth();
+  const isLoggedIn = session && (isAdminProfile(profile) || isJudgeProfile(profile));
   return (
     <>
       {/* How it works */}
@@ -126,7 +130,7 @@ export default function HowAndLevels({ onApply }: HowAndLevelsProps) {
             whileHover={{ scale: 1.04, x: -4 }}
             whileTap={{ scale: 0.97 }}
             onClick={onApply}
-            className="bg-navy text-white font-black text-base md:text-xl px-7 md:px-10 py-4 md:py-5 rounded-xl flex items-center gap-3 md:gap-4 flex-shrink-0 min-h-[44px] w-full md:w-auto justify-center"
+            className={`bg-navy text-white font-black text-base md:text-xl px-7 md:px-10 py-4 md:py-5 rounded-xl flex items-center gap-3 md:gap-4 flex-shrink-0 min-h-[44px] w-full md:w-auto justify-center ${isLoggedIn ? 'hidden' : ''}`}
           >
             قدّم مشروعك
             <span className="text-gold text-xl md:text-2xl">←</span>

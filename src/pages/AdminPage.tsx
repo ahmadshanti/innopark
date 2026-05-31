@@ -479,24 +479,39 @@ export default function AdminPage() {
     setCreatingUser(true);
     setJudgesError('');
 
-    const { data, error } = await supabase.functions.invoke('admin-create-user', {
-      body: {
-        fullName: newUserName.trim(),
-        email: newUserEmail.trim().toLowerCase(),
-        password: newUserPassword.trim(),
-        role: newUserRole,
+    // Store admin session before signUp overwrites it
+    const { data: sessionData } = await supabase.auth.getSession();
+    const adminTokens = sessionData.session
+      ? { access_token: sessionData.session.access_token, refresh_token: sessionData.session.refresh_token }
+      : null;
+
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email: newUserEmail.trim().toLowerCase(),
+      password: newUserPassword.trim(),
+      options: {
+        data: {
+          full_name: newUserName.trim(),
+          role: newUserRole,
+        },
       },
     });
 
+    // Restore admin session immediately
+    if (adminTokens) await supabase.auth.setSession(adminTokens);
+    else if (signUpData?.session) await supabase.auth.signOut();
+
     setCreatingUser(false);
 
-    if (error) {
-      setJudgesError(error.message || 'تعذّر إنشاء المستخدم');
+    if (signUpError) {
+      setJudgesError(signUpError.message || 'تعذّر إنشاء المستخدم');
       return;
     }
-    if (data?.error) {
-      setJudgesError(data.error);
-      return;
+
+    if (signUpData?.user) {
+      await supabase
+        .from('profiles')
+        .update({ role: newUserRole, status: 'approved', full_name: newUserName.trim() })
+        .eq('id', signUpData.user.id);
     }
 
     setNewUserName('');

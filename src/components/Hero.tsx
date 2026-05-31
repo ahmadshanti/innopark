@@ -1,5 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useAuth } from '../lib/use-auth';
+import { isAdminProfile, isJudgeProfile } from '../lib/authorization';
 
 interface HeroProps {
   onApply: () => void;
@@ -14,6 +16,8 @@ const stats = [
 
 export default function Hero({ onApply }: HeroProps) {
   const [spinning, setSpinning] = React.useState(false);
+  const { session, profile } = useAuth();
+  const isLoggedIn = session && (isAdminProfile(profile) || isJudgeProfile(profile));
   return (
     <section className="relative min-h-screen bg-cream overflow-hidden flex flex-col">
 
@@ -106,7 +110,7 @@ export default function Hero({ onApply }: HeroProps) {
               whileHover={{ scale: 1.04, y: -1 }}
               whileTap={{ scale: 0.97 }}
               onClick={onApply}
-              className="bg-gold hover:bg-gold-dark text-navy font-black text-base md:text-lg px-6 md:px-8 py-3 md:py-4 rounded-xl transition-colors flex items-center gap-3 shadow-lg shadow-gold/20 min-h-[44px]"
+              className={`bg-gold hover:bg-gold-dark text-navy font-black text-base md:text-lg px-6 md:px-8 py-3 md:py-4 rounded-xl transition-colors flex items-center gap-3 shadow-lg shadow-gold/20 min-h-[44px] ${isLoggedIn ? 'hidden' : ''}`}
             >
               قدّم مشروعك الآن
               <span className="text-navy/60 text-base">←</span>
