@@ -13,6 +13,8 @@ import JudgeDashboard from './pages/JudgeDashboard';
 import ImplementationPage from './pages/ImplementationPage';
 import JudgesPage from './pages/JudgesPage';
 import ProfilePage from './pages/ProfilePage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import { AuthProvider, RequireRole } from './lib/auth';
 import { CriteriaProvider } from './lib/criteria';
 
@@ -35,6 +37,8 @@ function AppRoutes() {
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/apply" element={<ApplyProjectPage />} />
       <Route path="/judges" element={<JudgesPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       {/* Judge profile */}
       <Route
