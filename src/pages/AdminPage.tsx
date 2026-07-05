@@ -58,12 +58,19 @@ export default function AdminPage() {
   const { profile } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = (searchParams.get('tab') as Tab) || 'applications';
-  const setTab = (t: Tab) => setSearchParams({ tab: t }, { replace: true });
+  const appsFilter = (searchParams.get('appf') as StatusFilter) || 'pending';
+  const usersFilter = (searchParams.get('userf') as UserStatusFilter) || 'pending';
+
+  const updateParam = (key: string, value: string) =>
+    setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set(key, value); return next; }, { replace: true });
+
+  const setTab = (t: Tab) => updateParam('tab', t);
+  const setAppsFilter = (f: StatusFilter) => updateParam('appf', f);
+  const setUsersFilter = (f: UserStatusFilter) => updateParam('userf', f);
 
   const [apps, setApps] = useState<AppRow[]>([]);
   const [appsLoading, setAppsLoading] = useState(false);
   const [appsError, setAppsError] = useState('');
-  const [appsFilter, setAppsFilter] = useState<StatusFilter>('pending');
   const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
 
@@ -73,7 +80,6 @@ export default function AdminPage() {
   const [judgeEvalCounts, setJudgeEvalCounts] = useState<Record<string, number>>({});
   const [roleActingId, setRoleActingId] = useState<string | null>(null);
   const [visibilityActingId, setVisibilityActingId] = useState<string | null>(null);
-  const [usersFilter, setUsersFilter] = useState<UserStatusFilter>('pending');
   const [statusActingId, setStatusActingId] = useState<string | null>(null);
   const [creatingUser, setCreatingUser] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
