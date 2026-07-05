@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/use-auth';
@@ -55,7 +56,9 @@ const LEVEL_COLORS: Record<string, { bg: string; text: string }> = {
 
 export default function AdminPage() {
   const { profile } = useAuth();
-  const [tab, setTab] = useState<Tab>('applications');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = (searchParams.get('tab') as Tab) || 'applications';
+  const setTab = (t: Tab) => setSearchParams({ tab: t }, { replace: true });
 
   const [apps, setApps] = useState<AppRow[]>([]);
   const [appsLoading, setAppsLoading] = useState(false);
