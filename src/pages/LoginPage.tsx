@@ -115,21 +115,19 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-bold text-navy/60">كلمة المرور</label>
-              <button
-                type="button"
-                onClick={() => nav('/forgot-password')}
-                className="text-xs text-navy/40 hover:text-navy hover:underline"
-              >
-                نسيت كلمة المرور؟
-              </button>
-            </div>
+            <label className="block text-sm font-bold text-navy/60 mb-2">كلمة المرور</label>
             <input type="password" value={password} onChange={e => setPassword(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleLogin()}
               placeholder="••••••••"
               className="w-full border border-navy/15 rounded-xl px-4 py-3 text-navy text-sm focus:outline-none focus:border-navy focus:ring-2 focus:ring-navy/10 bg-cream/50"
             />
+            <button
+              type="button"
+              onClick={() => nav('/forgot-password')}
+              className="mt-1.5 text-xs text-navy/35 hover:text-gold transition-colors"
+            >
+              نسيت كلمة المرور؟
+            </button>
           </div>
 
           {error && (
