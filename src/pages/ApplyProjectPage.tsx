@@ -1,8 +1,11 @@
 import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import ReCAPTCHA from 'react-google-recaptcha';
 import Navbar from '../components/Navbar';
 import { supabase } from '../lib/supabase';
+
+const RECAPTCHA_SITE_KEY = '6LcL90ktAAAAALoQMHRDyGuLJqNmQggi_yvNlPbp';
 import type {
   AttachProjectFileInput,
   ProjectType,
@@ -65,6 +68,8 @@ export default function ApplyProjectPage() {
   const [files, setFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const captchaRef = useRef<ReCAPTCHA>(null);
+
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<SubmitProjectResult | null>(null);
@@ -116,6 +121,7 @@ export default function ApplyProjectPage() {
     e.preventDefault();
     if (submitting) return;
     const errs = validate();
+    if (!captchaRef.current?.getValue()) errs.push('يرجى إتمام التحقق من أنك لست روبوتاً');
     setErrors(errs);
     if (errs.length > 0) return;
 
@@ -143,6 +149,7 @@ export default function ApplyProjectPage() {
 
     if (error) {
       setSubmitting(false);
+      captchaRef.current?.reset();
       setErrors([
         error.message.includes('najah')
           ? 'البريد الإلكتروني يجب أن ينتهي بـ @najah.edu أو @stu.najah.edu'
@@ -489,15 +496,22 @@ export default function ApplyProjectPage() {
           >
             → العودة للرئيسية
           </button>
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            type="submit"
-            disabled={submitting}
-            className="bg-gold hover:bg-gold-dark text-navy font-black px-8 py-3.5 rounded-xl flex items-center justify-center gap-2 disabled:opacity-60 min-h-[44px]"
-          >
-            {submitting ? 'جارٍ الإرسال...' : 'إرسال الطلب ←'}
-          </motion.button>
+          <div className="flex flex-col items-end gap-3">
+            <ReCAPTCHA
+              ref={captchaRef}
+              sitekey={RECAPTCHA_SITE_KEY}
+              hl="ar"
+            />
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              type="submit"
+              disabled={submitting}
+              className="bg-gold hover:bg-gold-dark text-navy font-black px-8 py-3.5 rounded-xl flex items-center justify-center gap-2 disabled:opacity-60 min-h-[44px]"
+            >
+              {submitting ? 'جارٍ الإرسال...' : 'إرسال الطلب ←'}
+            </motion.button>
+          </div>
         </div>
       </form>
     </div>
