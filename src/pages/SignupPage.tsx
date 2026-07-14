@@ -56,7 +56,15 @@ export default function SignupPage() {
     });
 
     if (signUpError) {
-      setError(signUpError.message || 'تعذّر إنشاء الحساب');
+      const msg = signUpError.message || '';
+      if (msg.includes('already registered') || msg.includes('already been registered'))
+        setError('هذا البريد الإلكتروني مسجّل مسبقاً');
+      else if (msg.includes('invalid') || msg.includes('validate email'))
+        setError('صيغة البريد الإلكتروني غير صحيحة');
+      else if (msg.includes('Password'))
+        setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+      else
+        setError('تعذّر إنشاء الحساب، حاول مرة أخرى');
       setLoading(false);
       return;
     }
