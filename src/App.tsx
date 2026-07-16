@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
+import { supabase } from './lib/supabase';
 import { MotionConfig } from 'framer-motion';
 import HomePage from './pages/HomePage';
 import ApplyProjectPage from './pages/ApplyProjectPage';
@@ -15,6 +16,8 @@ import JudgesPage from './pages/JudgesPage';
 import ProfilePage from './pages/ProfilePage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import CriteriaPage from './pages/CriteriaPage';
+import AboutPage from './pages/AboutPage';
 import { AuthProvider, RequireRole } from './lib/auth';
 import { CriteriaProvider } from './lib/criteria';
 
@@ -26,8 +29,21 @@ function ScrollToTop() {
   return null;
 }
 
+function PasswordRecoveryHandler() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') navigate('/reset-password', { replace: true });
+    });
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+  return null;
+}
+
 function AppRoutes() {
   return (
+    <>
+    <PasswordRecoveryHandler />
     <Routes>
       {/* Public */}
       <Route path="/" element={<HomePage />} />
@@ -39,6 +55,8 @@ function AppRoutes() {
       <Route path="/judges" element={<JudgesPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/criteria" element={<CriteriaPage />} />
+      <Route path="/about" element={<AboutPage />} />
 
       {/* Judge profile */}
       <Route
@@ -103,6 +121,7 @@ function AppRoutes() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }
 

@@ -5,48 +5,10 @@ import { useAuth } from '../lib/use-auth';
 import { isAdminProfile, isJudgeProfile } from '../lib/authorization';
 
 const steps = [
-  {
-    num: '01',
-    title: 'التقديم والتسجيل',
-    desc: 'يقوم المشروع بتقديم طلب التقييم مع تعبئة استمارة شاملة تتضمن معلومات المشروع الأساسية والوثائق الداعمة',
-    points: ['تعبئة نموذج التقديم الإلكتروني', 'إرفاق خطة العمل والعرض التقديمي', 'تقديم الوثائق الداعمة والشهادات'],
-    icon: '📋',
-  },
-  {
-    num: '02',
-    title: 'الفرز الأولي',
-    desc: 'يتم فحص الطلبات للتحقق من استيفاء الشروط الأساسية ومتطلبات الأهلية',
-    points: ['التحقق من اكتمال المستندات', 'مراجعة معايير الأهلية', 'تصنيف المشروع حسب القطاع'],
-    icon: '🔍',
-  },
-  {
-    num: '03',
-    title: 'التقييم التفصيلي',
-    desc: 'فريق من المقيّمين المتخصصين يقوم بتقييم المشروع عبر المحاور الخمسة باستخدام المصفوفة',
-    points: ['تقييم كل محور على حدة', 'جمع التقييمات من 3 مقيّمين مستقلين', 'حساب المتوسط المرجح'],
-    icon: '⚙️',
-  },
-  {
-    num: '04',
-    title: 'المراجعة والتدقيق',
-    desc: 'لجنة المراجعة تقوم بمراجعة نتائج التقييم وضمان الاتساق والموضوعية',
-    points: ['مراجعة التقييمات من قبل اللجنة', 'حل أي تباينات في التقييم', 'اعتماد النتائج النهائية'],
-    icon: '✅',
-  },
-  {
-    num: '05',
-    title: 'إصدار التقرير',
-    desc: 'إعداد تقرير شامل يتضمن النتائج والتوصيات وخارطة طريق للتطوير',
-    points: ['إعداد تقرير التقييم المفصل', 'تحديد نقاط القوة والتحسين', 'تقديم توصيات مخصصة'],
-    icon: '📊',
-  },
-  {
-    num: '06',
-    title: 'المتابعة والدعم',
-    desc: 'تقديم الدعم والإرشاد بناءً على نتائج التقييم مع متابعة دورية للتقدم',
-    points: ['جلسات إرشاد مخصصة', 'ربط المشروع بالموارد المناسبة', 'إعادة التقييم بعد 6 أشهر'],
-    icon: '🤝',
-  },
+  { num: '01', icon: '📋', title: 'تقديم الطلب', desc: 'يُعبّئ صاحب المشروع نموذج التقديم الإلكتروني بالبيانات الأساسية.' },
+  { num: '02', icon: '🔍', title: 'المراجعة الأولية', desc: 'يراجع الأدمن الطلب للتحقق من اكتمال البيانات وقبوله للتقييم.' },
+  { num: '03', icon: '⚙️', title: 'تقييم الحكّام', desc: 'يقيّم الحكّام المتخصصون المشروع عبر المحاور والمعايير المعتمدة.' },
+  { num: '04', icon: '📊', title: 'النتيجة والتوصية', desc: 'يُصدر النظام تلقائياً الدرجة النهائية ومستوى النضج والتوصية المناسبة.' },
 ];
 
 export default function HowItWorksPage() {
@@ -91,20 +53,12 @@ export default function HowItWorksPage() {
                 </div>
 
                 {/* Card */}
-                <div className="flex-1 bg-white rounded-2xl border border-navy/8 p-4 md:p-6 hover:border-navy/20 transition-all duration-300 group">
-                  <div className="flex items-start gap-4">
+                <div className="flex-1 bg-white rounded-2xl border border-navy/8 p-4 md:p-6 hover:border-navy/20 transition-all duration-300">
+                  <div className="flex items-center gap-4">
                     <div className="text-3xl">{step.icon}</div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-black text-navy mb-2">{step.title}</h3>
-                      <p className="text-navy/55 text-sm leading-relaxed mb-4">{step.desc}</p>
-                      <ul className="space-y-1.5">
-                        {step.points.map((p, pi) => (
-                          <li key={pi} className="flex items-center gap-2 text-sm text-navy/60">
-                            <span className="w-1.5 h-1.5 rounded-full bg-gold flex-shrink-0" />
-                            {p}
-                          </li>
-                        ))}
-                      </ul>
+                    <div>
+                      <h3 className="text-lg font-black text-navy mb-1">{step.title}</h3>
+                      <p className="text-navy/55 text-sm leading-relaxed">{step.desc}</p>
                     </div>
                   </div>
                 </div>

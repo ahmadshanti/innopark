@@ -43,8 +43,10 @@ export default function ForgotPasswordPage() {
         {sent ? (
           <div className="text-center">
             <div className="text-4xl mb-4">📬</div>
-            <h2 className="text-xl font-black text-navy mb-2">تم إرسال الرابط</h2>
-            <p className="text-navy/50 text-sm mb-6">تحقق من بريدك الإلكتروني واضغط على رابط إعادة تعيين كلمة المرور</p>
+            <h2 className="text-xl font-black text-navy mb-2">تم إرسال الطلب</h2>
+            <p className="text-navy/50 text-sm mb-6">
+              إذا كان هذا البريد مسجّلاً في النظام، ستصل إليك رسالة تحتوي على رابط إعادة تعيين كلمة المرور خلال دقائق.
+            </p>
             <button onClick={() => nav('/login')} className="text-navy font-bold text-sm hover:underline">
               العودة لتسجيل الدخول
             </button>

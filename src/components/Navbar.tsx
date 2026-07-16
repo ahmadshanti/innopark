@@ -9,8 +9,8 @@ type UserRole = "visitor" | "judge" | "admin";
 
 const NAV_LINKS = [
   { label: "الرئيسية", id: null, path: null },
-  { label: "معايير التقييم", id: "dimensions", path: null },
-  { label: "عن النظام", id: "how", path: null },
+  { label: "عن النظام", id: null, path: "/about" },
+  { label: "معايير التقييم", id: null, path: "/criteria" },
   { label: "آلية العمل", id: null, path: "/how-it-works" },
   { label: "خطة التنفيذ", id: null, path: "/implementation" },
   { label: "الحكّام", id: null, path: "/judges" },

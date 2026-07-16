@@ -1,6 +1,13 @@
 import { motion } from 'framer-motion';
 import { useCriteria } from '../lib/criteria';
 
+const AR_NUMS: Record<number, string> = {
+  1: 'محور علمي واحد', 2: 'محوران علميان', 3: 'ثلاثة محاور علمية',
+  4: 'أربعة محاور علمية', 5: 'خمسة محاور علمية', 6: 'ستة محاور علمية',
+  7: 'سبعة محاور علمية', 8: 'ثمانية محاور علمية', 9: 'تسعة محاور علمية',
+  10: 'عشرة محاور علمية',
+};
+
 const DIM_META: Record<string, { icon: string; desc: string }> = {
   technology:       { icon: '⚙️', desc: 'قياس مستوى النضج التقني وجاهزية التكنولوجيا' },
   market:           { icon: '📈', desc: 'تقييم فهم السوق والفرصة التجارية' },
@@ -11,6 +18,7 @@ const DIM_META: Record<string, { icon: string; desc: string }> = {
 
 export default function DimensionsSection() {
   const { dimensions } = useCriteria();
+  const dimsLabel = AR_NUMS[dimensions.length] ?? `${dimensions.length} محاور علمية`;
   const dims = dimensions.map((d, i) => ({
     num: String(i + 1).padStart(2, '0'),
     icon: DIM_META[d.key]?.icon ?? '📊',
@@ -39,7 +47,7 @@ export default function DimensionsSection() {
             transition={{ delay: 0.1 }}
             className="text-5xl font-black text-navy mb-4 leading-tight"
           >
-            خمسة محاور علمية
+            {dimsLabel}
             <span className="text-outline block text-6xl">متكاملة</span>
           </motion.h2>
           <motion.p
@@ -76,18 +84,13 @@ export default function DimensionsSection() {
                 {dim.name}
               </div>
 
-              <p className="dim-desc text-xs text-navy/45 leading-relaxed mb-4 transition-colors duration-300">
+              <p className="dim-desc text-sm text-navy/45 leading-relaxed mb-4 transition-colors duration-300">
                 {dim.desc}
               </p>
 
-              <ul className="space-y-1 mb-5">
-                {dim.criteria.map((c, ci) => (
-                  <li key={ci} className="dim-desc text-xs text-navy/40 transition-colors duration-300 flex items-center gap-1.5">
-                    <span className="w-1 h-1 rounded-full bg-gold flex-shrink-0" />
-                    {c}
-                  </li>
-                ))}
-              </ul>
+              <div className="dim-desc text-sm text-navy/40 transition-colors duration-300 mb-5">
+                {dim.criteria.length} معيار تقييمي
+              </div>
 
               <span className="dim-badge inline-block bg-navy/6 text-navy/50 text-xs font-bold tracking-wider px-3 py-1 rounded-full transition-all duration-300">
                 وزن {dim.weight}

@@ -3,13 +3,7 @@ import { motion } from 'framer-motion';
 import { useReveal } from '../hooks/useReveal';
 import { useAuth } from '../lib/use-auth';
 import { isAdminProfile, isJudgeProfile } from '../lib/authorization';
-
-const steps = [
-  { n: '01', icon: '📋', title: 'بيانات المشروع', desc: 'أدخل اسم مشروعك وبياناتك الأساسية ووصفاً مختصراً للفكرة' },
-  { n: '02', icon: '⭐', title: 'التقييم الشامل', desc: 'قيّم مشروعك عبر 25 معياراً موزعة على 5 محاور بمقياس 1 إلى 5' },
-  { n: '03', icon: '🔢', title: 'الحساب التلقائي', desc: 'النظام يحسب الدرجة الموزونة النهائية بدقة علمية فورية' },
-  { n: '04', icon: '📊', title: 'التقرير والتوصية', desc: 'احصل على تقرير مفصل مع نقاط القوة والضعف والقرار الموصى به' },
-];
+import { useCriteria } from '../lib/criteria';
 
 const levels = [
   { range: '< 40', name: 'غير جاهز', en: 'Not Ready', color: '#E24B4A', bg: '#FCEBEB', bar: 15 },
@@ -27,6 +21,16 @@ export default function HowAndLevels({ onApply }: HowAndLevelsProps) {
   const refCta = useReveal();
   const { session, profile } = useAuth();
   const isLoggedIn = session && (isAdminProfile(profile) || isJudgeProfile(profile));
+  const { dimensions } = useCriteria();
+  const dimsCount = dimensions.length;
+  const criteriaCount = dimensions.reduce((sum, d) => sum + d.criteria.length, 0);
+
+  const steps = [
+    { n: '01', icon: '📋', title: 'تقديم المشروع', by: 'مقدم المشروع', desc: 'يُعبّئ مقدم المشروع نموذج التقديم بالبيانات الأساسية ووصف الفكرة' },
+    { n: '02', icon: '⭐', title: 'التقييم من الحكّام', by: 'لجنة الحكّام', desc: `يقوم الحكّام المتخصصون بتقييم المشروع عبر ${criteriaCount} معياراً موزعة على ${dimsCount} محاور بمقياس من 1 إلى 5` },
+    { n: '03', icon: '🔢', title: 'الحساب التلقائي', by: 'النظام', desc: 'يحسب النظام تلقائياً الدرجة الموزونة النهائية استناداً إلى أوزان المحاور' },
+    { n: '04', icon: '📊', title: 'التقرير والتوصية', by: 'النظام', desc: 'يُصدر النظام تقريراً مفصلاً بنقاط القوة والضعف ومستوى النضج والتوصية المناسبة' },
+  ];
   return (
     <>
       {/* How it works */}
@@ -59,9 +63,11 @@ export default function HowAndLevels({ onApply }: HowAndLevelsProps) {
                   {s.icon}
                 </div>
                 {/* العنوان */}
-                <div className="how-title text-lg font-bold text-navy mb-3 transition-colors duration-300 group-hover:text-white">
+                <div className="how-title text-lg font-bold text-navy mb-1 transition-colors duration-300 group-hover:text-white">
                   {s.title}
                 </div>
+                {/* من يقوم بها */}
+                <div className="text-xs font-bold text-gold mb-3 group-hover:text-gold/80">{s.by}</div>
                 {/* الوصف */}
                 <p className="how-desc text-sm text-navy/50 leading-relaxed transition-colors duration-300 group-hover:text-white/50">
                   {s.desc}
@@ -79,7 +85,7 @@ export default function HowAndLevels({ onApply }: HowAndLevelsProps) {
             <span className="inline-block bg-gold text-navy text-xs font-bold tracking-[3px] uppercase px-4 py-2 rounded mb-5">
               مستويات النضج
             </span>
-            <h2 className="text-5xl font-black text-white mb-3">خمسة تصنيفات</h2>
+            <h2 className="text-5xl font-black text-white mb-3">خمسة مستويات</h2>
             <p className="text-white/40 text-lg">كل مشروع يحصل على مستوى دقيق وتوصية مخصصة</p>
           </div>
 

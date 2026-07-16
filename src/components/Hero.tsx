@@ -2,22 +2,27 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../lib/use-auth';
 import { isAdminProfile, isJudgeProfile } from '../lib/authorization';
+import { useCriteria } from '../lib/criteria';
 
 interface HeroProps {
   onApply: () => void;
 }
 
-const stats = [
-  { num: '5', unit: 'محاور', sub: 'أبعاد تقييم شاملة' },
-  { num: '25', unit: 'معيار', sub: 'مؤشر قياس علمي' },
-  { num: '100', unit: 'درجة', sub: 'نظام تقييم موزون' },
-  { num: '5', unit: 'مستويات', sub: 'تصنيف احترافي' },
-];
-
 export default function Hero({ onApply }: HeroProps) {
   const [spinning, setSpinning] = React.useState(false);
   const { session, profile } = useAuth();
   const isLoggedIn = session && (isAdminProfile(profile) || isJudgeProfile(profile));
+  const { dimensions } = useCriteria();
+
+  const dimsCount = dimensions.length;
+  const criteriaCount = dimensions.reduce((sum, d) => sum + d.criteria.length, 0);
+
+  const stats = [
+    { num: String(dimsCount), unit: 'محاور', sub: 'أبعاد تقييم شاملة' },
+    { num: String(criteriaCount), unit: 'معيار', sub: 'موزعة على المحاور' },
+    { num: '100', unit: 'درجة', sub: 'الدرجة القصوى للتقييم' },
+    { num: '5', unit: 'مستويات', sub: 'من غير جاهز حتى عالي النضج' },
+  ];
   return (
     <section className="relative min-h-screen bg-cream overflow-hidden flex flex-col">
 

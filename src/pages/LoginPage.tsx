@@ -102,8 +102,7 @@ export default function LoginPage() {
         transition={{ delay: 0.1 }}
         className="bg-white rounded-2xl border border-navy/8 shadow-xl p-8 w-full max-w-sm"
       >
-        <h1 className="text-2xl font-black text-navy mb-1">تسجيل الدخول</h1>
-        <p className="text-navy/40 text-sm mb-6">للأدمن والحكّام</p>
+        <h1 className="text-2xl font-black text-navy mb-6 text-center">تسجيل الدخول</h1>
 
         <div className="space-y-4">
           <div>
