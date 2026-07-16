@@ -14,6 +14,16 @@ export default function ForgotPasswordPage() {
     if (!email.trim()) { setError('يرجى إدخال البريد الإلكتروني'); return; }
     setError(''); setLoading(true);
 
+    const { data: exists, error: rpcErr } = await supabase.rpc('check_email_exists', {
+      user_email: email.trim().toLowerCase(),
+    });
+
+    if (rpcErr || !exists) {
+      setError('هذا البريد الإلكتروني غير مسجّل في النظام');
+      setLoading(false);
+      return;
+    }
+
     const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
       redirectTo: `${window.location.origin}/reset-password`,
     });
