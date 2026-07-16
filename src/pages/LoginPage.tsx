@@ -22,7 +22,9 @@ export default function LoginPage() {
   }, [profile, authLoading, nav]);
 
   async function handleLogin() {
-    if (!email || !password) { setError('يرجى إدخال البريد وكلمة المرور'); return; }
+    if (!email && !password) { setError('يرجى إدخال البريد الإلكتروني وكلمة المرور'); return; }
+    if (!email) { setError('يرجى إدخال البريد الإلكتروني'); return; }
+    if (!password) { setError('يرجى إدخال كلمة المرور'); return; }
     setError(''); setLoading(true);
 
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });

@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
+
+const RESEND_SECONDS = 60;
 
 export default function ForgotPasswordPage() {
   const nav = useNavigate();
@@ -9,6 +11,22 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  const [countdown, setCountdown] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
+
+  function startCountdown() {
+    setCountdown(RESEND_SECONDS);
+    timerRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { clearInterval(timerRef.current!); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  }
 
   async function handleSubmit() {
     if (!email.trim()) { setError('يرجى إدخال البريد الإلكتروني'); return; }
@@ -31,6 +49,7 @@ export default function ForgotPasswordPage() {
     setLoading(false);
     if (err) { setError('تعذّر إرسال رابط الاسترداد. تحقق من البريد الإلكتروني'); return; }
     setSent(true);
+    startCountdown();
   }
 
   return (
@@ -53,11 +72,26 @@ export default function ForgotPasswordPage() {
         {sent ? (
           <div className="text-center">
             <div className="text-4xl mb-4">📬</div>
-            <h2 className="text-xl font-black text-navy mb-2">تم إرسال الطلب</h2>
+            <h2 className="text-xl font-black text-navy mb-2">تم إرسال الرابط</h2>
             <p className="text-navy/50 text-sm mb-6">
-              إذا كان هذا البريد مسجّلاً في النظام، ستصل إليك رسالة تحتوي على رابط إعادة تعيين كلمة المرور خلال دقائق.
+              تحقق من بريدك الإلكتروني واضغط على رابط إعادة تعيين كلمة المرور.
             </p>
-            <button onClick={() => nav('/login')} className="text-navy font-bold text-sm hover:underline">
+
+            {countdown > 0 ? (
+              <p className="text-navy/35 text-sm mb-4">
+                إعادة الإرسال متاحة بعد <span className="font-black text-navy">{countdown}</span> ثانية
+              </p>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="text-navy font-bold text-sm hover:underline mb-4 block mx-auto disabled:opacity-50"
+              >
+                {loading ? 'جارٍ الإرسال...' : 'إعادة إرسال الرابط'}
+              </button>
+            )}
+
+            <button onClick={() => nav('/login')} className="text-navy/40 text-sm hover:text-navy hover:underline">
               العودة لتسجيل الدخول
             </button>
           </div>
