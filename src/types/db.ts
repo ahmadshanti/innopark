@@ -3,7 +3,7 @@
 // Keep this file in sync whenever the schema changes.
 
 export type ProjectType   = 'individual' | 'team';
-export type ProjectStatus = 'pending' | 'approved' | 'rejected';
+export type ProjectStatus = 'pending' | 'approved' | 'rejected' | 'ready' | 'under_evaluation';
 export type UserRole      = 'admin' | 'judge';
 export type UserStatus    = 'pending' | 'approved' | 'rejected';
 
@@ -34,6 +34,7 @@ export interface Project {
   rejected_reason: string | null;
   reviewed_at: string | null;
   reviewed_by: string | null;
+  assigned_judge_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -110,6 +111,7 @@ export interface JudgeProject {
   department: string | null;
   description: string | null;
   created_at: string;
+  status: ProjectStatus;
   reviewed_by_me: boolean;
   has_draft: boolean;
 }

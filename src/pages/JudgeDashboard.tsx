@@ -87,7 +87,11 @@ export default function JudgeDashboard() {
     });
   }, [projects, query]);
 
-  function openProject(p: JudgeProject) {
+  async function openProject(p: JudgeProject) {
+    if (p.status === 'ready') {
+      await supabase.rpc('start_evaluation', { p_project_id: p.id });
+      setProjects(prev => prev.map(x => x.id === p.id ? { ...x, status: 'under_evaluation' as const } : x));
+    }
     nav(`/evaluation/${p.id}`);
   }
 

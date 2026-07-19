@@ -22,7 +22,24 @@ interface TeamMember {
 const emptyMember = (): TeamMember => ({ full_name: '', email: '', role: '' });
 
 const EMAIL_RE = /^[^@\s]+@(stu\.)?najah\.edu$/i;
-const MOBILE_RE = /^[0-9+\-\s]{7,}$/;
+const MOBILE_RE = /^05[0-9]{8}$/;
+
+const DEPARTMENTS = [
+  'كلية الهندسة وتكنولوجيا المعلومات',
+  'كلية العلوم',
+  'كلية الطب وعلوم الصحة',
+  'كلية الصيدلة',
+  'كلية التمريض',
+  'كلية الحقوق والسياسة',
+  'كلية الاقتصاد والعلوم الإدارية',
+  'كلية التكنولوجيا',
+  'كلية الشريعة',
+  'كلية التربية',
+  'كلية الآداب',
+  'كلية الزراعة والعلوم البيطرية',
+  'كلية العمارة والتصميم',
+  'وحدة أخرى / إدارية',
+];
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_MIME = new Set([
@@ -93,7 +110,13 @@ export default function ApplyProjectPage() {
   function updateMember(i: number, patch: Partial<TeamMember>) {
     setMembers(prev => prev.map((m, idx) => idx === i ? { ...m, ...patch } : m));
   }
-  function addMember()     { setMembers(prev => [...prev, emptyMember()]); }
+  function addMember() {
+    if (!members[members.length - 1].full_name.trim()) {
+      setErrors(['يرجى تعبئة اسم العضو الحالي قبل إضافة عضو جديد']);
+      return;
+    }
+    setMembers(prev => [...prev, emptyMember()]);
+  }
   function removeMember(i: number) {
     setMembers(prev => prev.length === 1 ? prev : prev.filter((_, idx) => idx !== i));
   }
@@ -102,13 +125,17 @@ export default function ApplyProjectPage() {
     const errs: string[] = [];
     if (!projectName.trim())   errs.push('اسم المشروع مطلوب');
     if (!applicantName.trim()) errs.push('اسم مقدم الطلب مطلوب');
-    if (!MOBILE_RE.test(mobile.trim())) errs.push('رقم الجوال غير صحيح');
+    if (!MOBILE_RE.test(mobile.trim())) errs.push('رقم الجوال غير صحيح، يجب أن يكون 10 أرقام ويبدأ بـ 05');
     if (!EMAIL_RE.test(email.trim())) errs.push('البريد الإلكتروني يجب أن ينتهي بـ @najah.edu أو @stu.najah.edu');
 
+    if (files.length === 0) errs.push('يرجى إرفاق ملف واحد على الأقل');
     if (type === 'team') {
-      const filled = members.filter(m => m.full_name.trim());
-      if (filled.length === 0) errs.push('أضف عضواً واحداً على الأقل لفريق المشروع');
-      filled.forEach((m, i) => {
+      if (!members.some(m => m.full_name.trim())) {
+        errs.push('أضف عضواً واحداً على الأقل لفريق المشروع');
+      } else if (members.some(m => !m.full_name.trim())) {
+        errs.push('يرجى تعبئة اسم جميع أعضاء الفريق أو حذف الصفوف الفارغة');
+      }
+      members.filter(m => m.full_name.trim()).forEach((m, i) => {
         if (m.email.trim() && !/^\S+@\S+\.\S+$/.test(m.email.trim())) {
           errs.push(`بريد العضو ${i + 1} غير صحيح`);
         }
@@ -227,12 +254,11 @@ export default function ApplyProjectPage() {
               <span className="text-3xl text-gold">✓</span>
             </motion.div>
             <h1 className="text-3xl font-black text-navy mb-3">تم استلام طلبك</h1>
-            <p className="text-navy/55 leading-relaxed mb-6">
+            <p className="text-navy/55 leading-relaxed mb-4">
               شكراً لتقديم مشروعك. طلبك الآن قيد المراجعة من فريق الإدارة، وسيتم إعلامك عبر البريد الإلكتروني بعد اعتماده.
             </p>
-            <div className="inline-flex items-center gap-3 bg-navy/5 rounded-xl px-5 py-3 mb-8">
-              <span className="text-xs text-navy/50">رقم الطلب</span>
-              <span className="font-grotesk font-black text-navy text-lg">#{success.project_number}</span>
+            <div className="inline-flex items-center gap-2 bg-gold/10 text-gold-dark rounded-xl px-5 py-3 mb-8 text-sm font-bold">
+              ⏱ الفترة المتوقعة للمراجعة: من 3 إلى 5 أيام عمل
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <motion.button
@@ -267,7 +293,7 @@ export default function ApplyProjectPage() {
 
           {/* نوع المشروع */}
           <div>
-            <label className="block text-sm font-bold text-navy/70 mb-3">نوع المشروع *</label>
+            <label className="block text-sm font-bold text-navy/70 mb-3">نوع المشروع <span className="text-red-500">*</span></label>
             <div className="grid grid-cols-2 gap-3">
               {(['individual', 'team'] as ProjectType[]).map(t => (
                 <button
@@ -324,12 +350,14 @@ export default function ApplyProjectPage() {
               />
             </Field>
             <Field label="الكلية / القسم">
-              <input
+              <select
                 value={department}
                 onChange={e => setDepartment(e.target.value)}
-                placeholder="اختياري"
                 className={inputClass}
-              />
+              >
+                <option value="">-- اختر الكلية / القسم --</option>
+                {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
             </Field>
           </div>
 
@@ -337,7 +365,7 @@ export default function ApplyProjectPage() {
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="اكتب وصفاً مختصراً لفكرة المشروع (اختياري)"
+              placeholder="اكتب وصفاً مختصراً لفكرة المشروع"
               rows={4}
               className={`${inputClass} resize-none`}
             />
@@ -347,9 +375,9 @@ export default function ApplyProjectPage() {
           <div className="pt-2 border-t border-navy/8">
             <div className="flex items-center justify-between mb-2 mt-5">
               <div>
-                <div className="text-sm font-bold text-navy">الملفات المرفقة</div>
+                <div className="text-sm font-bold text-navy">الملفات المرفقة <span className="text-red-500">*</span></div>
                 <div className="text-xs text-navy/50">
-                  اختياري — PDF / Word / صور / ZIP، الحد الأقصى 5MB لكل ملف
+                  PDF / Word / صور / ZIP، الحد الأقصى 5MB لكل ملف
                 </div>
               </div>
               <button
@@ -447,7 +475,7 @@ export default function ApplyProjectPage() {
                         <input
                           value={m.email}
                           onChange={e => updateMember(i, { email: e.target.value })}
-                          placeholder="البريد (اختياري)"
+                          placeholder="البريد الإلكتروني"
                           type="email"
                           dir="ltr"
                           className={`${inputClass} md:col-span-4`}
@@ -522,9 +550,12 @@ const inputClass =
   'w-full border border-navy/15 rounded-xl px-4 py-3 text-navy text-sm focus:outline-none focus:border-navy focus:ring-2 focus:ring-navy/10 transition-all bg-cream/50 placeholder:text-navy/25';
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const [text, star] = label.endsWith('*') ? [label.slice(0, -1).trim(), true] : [label, false];
   return (
     <div>
-      <label className="block text-sm font-bold text-navy/70 mb-2">{label}</label>
+      <label className="block text-sm font-bold text-navy/70 mb-2">
+        {text}{star && <span className="text-red-500"> *</span>}
+      </label>
       {children}
     </div>
   );

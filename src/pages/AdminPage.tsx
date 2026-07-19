@@ -10,7 +10,10 @@ import CriteriaAdmin from './CriteriaAdmin';
 import type { Profile, Project, ProjectMember, ProjectStatus, UserStatus } from '../types/db';
 
 type Tab = 'applications' | 'judges' | 'projects' | 'criteria';
-type AppRow = Project & { project_members: ProjectMember[] };
+type AppRow = Project & {
+  project_members: ProjectMember[];
+  assigned_judge: { id: string; full_name: string | null } | null;
+};
 type StatusFilter = 'all' | ProjectStatus;
 type UserStatusFilter = 'all' | UserStatus;
 
@@ -30,6 +33,14 @@ interface JudgeReviewItem {
   submittedAt: string;
   finalScore: number | null;
   classification: string | null;
+}
+
+interface StatusLogEntry {
+  id: string;
+  old_status: string | null;
+  new_status: string;
+  changed_at: string;
+  changer: { full_name: string } | null;
 }
 
 interface ProjectSummary {
@@ -73,6 +84,14 @@ export default function AdminPage() {
   const [appsError, setAppsError] = useState('');
   const [expandedAppId, setExpandedAppId] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [statusLogs, setStatusLogs] = useState<Record<string, StatusLogEntry[]>>({});
+  const [logsLoading, setLogsLoading] = useState<Record<string, boolean>>({});
+
+  const [approvalModal, setApprovalModal] = useState<{ id: string; name: string; number: number } | null>(null);
+  const [modalJudges, setModalJudges] = useState<Profile[]>([]);
+  const [modalJudgesLoading, setModalJudgesLoading] = useState(false);
+  const [selectedJudgeId, setSelectedJudgeId] = useState('');
+  const [approving, setApproving] = useState(false);
 
   const [judges, setJudges] = useState<Profile[]>([]);
   const [judgesLoading, setJudgesLoading] = useState(false);
@@ -110,7 +129,7 @@ export default function AdminPage() {
     setAppsError('');
     const { data, error } = await supabase
       .from('projects')
-      .select('*, project_members(*)')
+      .select('*, project_members(*), assigned_judge:profiles!assigned_judge_id(id, full_name)')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -163,7 +182,69 @@ export default function AdminPage() {
       return;
     }
 
+    setStatusLogs(prev => { const next = { ...prev }; delete next[id]; return next; });
     await loadApplications();
+    if (expandedAppId === id) fetchStatusLog(id);
+  }
+
+  async function fetchStatusLog(projectId: string) {
+    setLogsLoading(prev => ({ ...prev, [projectId]: true }));
+    const { data } = await supabase
+      .from('project_status_log')
+      .select('id, old_status, new_status, changed_at, changer:profiles!changed_by(full_name)')
+      .eq('project_id', projectId)
+      .order('changed_at', { ascending: true });
+    setStatusLogs(prev => ({ ...prev, [projectId]: (data ?? []) as StatusLogEntry[] }));
+    setLogsLoading(prev => ({ ...prev, [projectId]: false }));
+  }
+
+  async function openApprovalModal(project: AppRow) {
+    setApprovalModal({ id: project.id, name: project.project_name, number: project.project_number });
+    setSelectedJudgeId('');
+    setModalJudgesLoading(true);
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'judge')
+      .eq('status', 'approved')
+      .order('full_name');
+    setModalJudges((data ?? []) as Profile[]);
+    setModalJudgesLoading(false);
+  }
+
+  async function confirmApproval() {
+    if (!approvalModal || !selectedJudgeId) return;
+    setApproving(true);
+
+    const { error } = await supabase.rpc('set_project_status', {
+      p_project_id: approvalModal.id,
+      p_status: 'ready',
+      p_reason: null,
+      p_force: false,
+      p_judge_id: selectedJudgeId,
+    });
+
+    if (error) {
+      setAppsError(error.message || 'تعذّر تعيين الحكم');
+      setApproving(false);
+      return;
+    }
+
+    const judge = modalJudges.find(j => j.id === selectedJudgeId);
+    supabase.functions.invoke('notify-judge', {
+      body: {
+        judgeId: selectedJudgeId,
+        judgeName: judge?.full_name ?? '',
+        projectName: approvalModal.name,
+        projectNumber: approvalModal.number,
+      },
+    });
+
+    setApproving(false);
+    setApprovalModal(null);
+    setStatusLogs(prev => { const n = { ...prev }; delete n[approvalModal.id]; return n; });
+    await loadApplications();
+    if (expandedAppId === approvalModal.id) fetchStatusLog(approvalModal.id);
   }
 
   const appsCounts = useMemo(() => {
@@ -691,17 +772,25 @@ export default function AdminPage() {
                     const expanded = expandedAppId === project.id;
                     const acting = actingId === project.id;
                     const statusPill =
-                      project.status === 'approved'
-                        ? 'bg-green-100 text-green-700'
-                        : project.status === 'rejected'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-yellow-100 text-yellow-700';
+                      project.status === 'ready'
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : project.status === 'under_evaluation'
+                          ? 'bg-blue-100 text-blue-700'
+                          : project.status === 'rejected'
+                            ? 'bg-red-100 text-red-700'
+                            : project.status === 'approved'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-orange-100 text-orange-700';
                     const statusLabel =
-                      project.status === 'approved'
-                        ? '✅ مقبول'
-                        : project.status === 'rejected'
-                          ? '❌ مرفوض'
-                          : '⏳ قيد المراجعة';
+                      project.status === 'ready'
+                        ? '🟡 جاهز للتقييم'
+                        : project.status === 'under_evaluation'
+                          ? '🔵 قيد التقييم'
+                          : project.status === 'rejected'
+                            ? '❌ مرفوض'
+                            : project.status === 'approved'
+                              ? '✅ مقبول'
+                              : '⏳ قيد المراجعة';
 
                     return (
                       <motion.div
@@ -711,7 +800,11 @@ export default function AdminPage() {
                         transition={{ delay: Math.min(index * 0.03, 0.3) }}
                       >
                         <div
-                          onClick={() => setExpandedAppId(expanded ? null : project.id)}
+                          onClick={() => {
+                            const next = expanded ? null : project.id;
+                            setExpandedAppId(next);
+                            if (next && !statusLogs[next]) fetchStatusLog(next);
+                          }}
                           className="px-4 md:px-6 py-4 md:grid md:grid-cols-12 md:items-center md:gap-3 space-y-2 md:space-y-0 cursor-pointer hover:bg-cream transition-colors"
                         >
                           <div className="md:col-span-1">
@@ -726,7 +819,7 @@ export default function AdminPage() {
                           </div>
                           <div className="md:col-span-4">
                             <div className="font-bold text-navy text-sm">{project.project_name}</div>
-                            <div className="text-xs text-navy/40 mt-0.5">{project.applicant_name}</div>
+                            <div className="text-sm text-navy/40 mt-0.5">{project.applicant_name}</div>
                           </div>
                           <div className="md:col-span-2">
                             <span
@@ -739,7 +832,7 @@ export default function AdminPage() {
                               {project.project_type === 'team' ? '👥 فريق' : '👤 فردي'}
                             </span>
                           </div>
-                          <div className="md:col-span-2 text-xs text-navy/50">
+                          <div className="md:col-span-2 text-sm text-navy/50">
                             {new Date(project.created_at).toLocaleDateString('ar-SA')}
                           </div>
                           <div className="md:col-span-1">
@@ -753,31 +846,30 @@ export default function AdminPage() {
                             className="md:col-span-2 flex gap-2 flex-wrap md:justify-end"
                             onClick={(event) => event.stopPropagation()}
                           >
-                            {project.status !== 'approved' && (
-                              <button
-                                onClick={() => handleSetStatus(project.id, 'approved')}
-                                disabled={acting}
-                                className="text-xs bg-green-600 text-white font-bold px-3 py-1.5 rounded-lg hover:bg-green-700 disabled:opacity-50"
-                              >
-                                {acting ? '...' : 'قبول'}
-                              </button>
-                            )}
-                            {project.status !== 'rejected' && (
-                              <button
-                                onClick={() => handleSetStatus(project.id, 'rejected')}
-                                disabled={acting}
-                                className="text-xs bg-red-500 text-white font-bold px-3 py-1.5 rounded-lg hover:bg-red-600 disabled:opacity-50"
-                              >
-                                {acting ? '...' : 'رفض'}
-                              </button>
-                            )}
-                            {project.status !== 'pending' && (
+                            {project.status === 'pending' ? (
+                              <>
+                                <button
+                                  onClick={() => openApprovalModal(project)}
+                                  disabled={acting}
+                                  className="text-xs bg-green-600 text-white font-bold px-3 py-1.5 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                                >
+                                  قبول
+                                </button>
+                                <button
+                                  onClick={() => handleSetStatus(project.id, 'rejected')}
+                                  disabled={acting}
+                                  className="text-xs bg-red-500 text-white font-bold px-3 py-1.5 rounded-lg hover:bg-red-600 disabled:opacity-50"
+                                >
+                                  {acting ? '...' : 'رفض'}
+                                </button>
+                              </>
+                            ) : (
                               <button
                                 onClick={() => handleSetStatus(project.id, 'pending')}
                                 disabled={acting}
                                 className="text-xs text-navy/60 hover:text-navy font-bold border border-navy/15 hover:border-navy/30 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                               >
-                                تعليق
+                                إعادة للمراجعة
                               </button>
                             )}
                           </div>
@@ -873,6 +965,53 @@ export default function AdminPage() {
                                     </div>
                                   </div>
                                 )}
+                                {project.assigned_judge && (
+                                  <div className="md:col-span-3">
+                                    <div className="text-[10px] font-bold text-navy/40 uppercase tracking-widest mb-1">
+                                      الحكم المعيَّن
+                                    </div>
+                                    <div className="inline-flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-1.5 text-sm text-blue-700 font-bold">
+                                      ⚖️ {project.assigned_judge.full_name ?? '—'}
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="md:col-span-3">
+                                  <div className="text-[10px] font-bold text-navy/40 uppercase tracking-widest mb-3">
+                                    سجل النشاط
+                                  </div>
+                                  {logsLoading[project.id] ? (
+                                    <div className="text-xs text-navy/30">جارٍ التحميل...</div>
+                                  ) : !statusLogs[project.id]?.length ? (
+                                    <div className="text-xs text-navy/30">لا توجد تغييرات مسجّلة</div>
+                                  ) : (
+                                    <div className="relative">
+                                      <div className="absolute top-0 bottom-0 end-[7px] w-px bg-navy/10" />
+                                      <div className="space-y-3">
+                                        {statusLogs[project.id].map((entry) => {
+                                          const statusAr = (s: string | null) =>
+                                            s === 'approved' ? 'مقبول' : s === 'rejected' ? 'مرفوض' : s === 'pending' ? 'قيد المراجعة' : '—';
+                                          const dotColor =
+                                            entry.new_status === 'approved' ? 'bg-green-500' :
+                                            entry.new_status === 'rejected' ? 'bg-red-500' : 'bg-yellow-400';
+                                          return (
+                                            <div key={entry.id} className="flex items-start gap-3 pe-6">
+                                              <div className="flex-1 bg-white rounded-lg border border-navy/8 px-3 py-2">
+                                                <div className="text-xs font-bold text-navy">
+                                                  {entry.old_status ? `${statusAr(entry.old_status)} ← ${statusAr(entry.new_status)}` : statusAr(entry.new_status)}
+                                                </div>
+                                                <div className="text-[11px] text-navy/40 mt-0.5">
+                                                  {new Date(entry.changed_at).toLocaleString('ar-SA')}
+                                                  {entry.changer?.full_name ? ` · ${entry.changer.full_name}` : ''}
+                                                </div>
+                                              </div>
+                                              <div className={`mt-2 w-3.5 h-3.5 rounded-full border-2 border-white shrink-0 ${dotColor}`} />
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </motion.div>
                           )}
@@ -1420,6 +1559,61 @@ export default function AdminPage() {
       </AnimatePresence>
 
       <Footer containerClassName="max-w-6xl" className="py-6 px-8" />
+
+      {/* Approval modal — assign judge */}
+      {approvalModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" dir="rtl">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+          >
+            <h2 className="text-lg font-black text-navy mb-1">قبول المشروع</h2>
+            <p className="text-navy/50 text-sm mb-5">
+              اختر الحكم المسؤول عن تقييم مشروع <span className="font-bold text-navy">#{approvalModal.number} — {approvalModal.name}</span>
+            </p>
+
+            {modalJudgesLoading ? (
+              <div className="text-center py-8 text-navy/40 text-sm">جارٍ تحميل الحكّام...</div>
+            ) : modalJudges.length === 0 ? (
+              <div className="text-center py-8 text-navy/40 text-sm">لا يوجد حكّام معتمدون حالياً</div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto mb-5">
+                {modalJudges.map(j => (
+                  <button
+                    key={j.id}
+                    onClick={() => setSelectedJudgeId(j.id)}
+                    className={`w-full text-start px-4 py-3 rounded-xl border text-sm font-bold transition-colors ${
+                      selectedJudgeId === j.id
+                        ? 'bg-navy text-white border-navy'
+                        : 'bg-cream/60 text-navy border-navy/10 hover:border-navy/30'
+                    }`}
+                  >
+                    ⚖️ {j.full_name ?? j.id}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={confirmApproval}
+                disabled={!selectedJudgeId || approving}
+                className="flex-1 bg-green-600 text-white font-black py-2.5 rounded-xl text-sm hover:bg-green-700 disabled:opacity-40 transition-colors"
+              >
+                {approving ? 'جارٍ القبول...' : 'تأكيد القبول وإرسال الإشعار'}
+              </button>
+              <button
+                onClick={() => setApprovalModal(null)}
+                disabled={approving}
+                className="px-4 py-2.5 rounded-xl border border-navy/15 text-navy text-sm font-bold hover:bg-cream transition-colors"
+              >
+                إلغاء
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

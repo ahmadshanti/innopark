@@ -6,6 +6,23 @@ import { supabase } from '../lib/supabase';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const PHONE_RE = /^05[0-9]{8}$/;
 
+const DEPARTMENTS = [
+  'كلية الهندسة وتكنولوجيا المعلومات',
+  'كلية العلوم',
+  'كلية الطب وعلوم الصحة',
+  'كلية الصيدلة',
+  'كلية التمريض',
+  'كلية الحقوق والسياسة',
+  'كلية الاقتصاد والعلوم الإدارية',
+  'كلية التكنولوجيا',
+  'كلية الشريعة',
+  'كلية التربية',
+  'كلية الآداب',
+  'كلية الزراعة والعلوم البيطرية',
+  'كلية العمارة والتصميم',
+  'وحدة أخرى / إدارية',
+];
+
 export default function SignupPage() {
   const nav = useNavigate();
   const [fullName, setFullName] = useState('');
@@ -17,9 +34,11 @@ export default function SignupPage() {
   const [department, setDepartment] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [docFile, setDocFile] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
 
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -45,6 +64,7 @@ export default function SignupPage() {
     if (!email.trim()) missing.push('البريد الإلكتروني');
     if (!password.trim()) missing.push('كلمة المرور');
     if (!bio.trim()) missing.push('النبذة');
+    if (!docFile) missing.push('الوثائق والمؤهلات');
     if (missing.length > 0) {
       setError(`${missing.join(' و')} حقول إجبارية`);
       return;
@@ -115,6 +135,11 @@ export default function SignupPage() {
       }
     }
 
+    if (userId && docFile && data.session) {
+      const ext = docFile.name.split('.').pop();
+      await supabase.storage.from('avatars').upload(`${userId}/cv.${ext}`, docFile, { upsert: true });
+    }
+
     // Sign out immediately — user must wait for admin approval before logging in.
     if (data.session) await supabase.auth.signOut();
 
@@ -176,7 +201,7 @@ export default function SignupPage() {
               )}
             </div>
             <span className="text-xs text-navy/40">
-              {avatarFile ? avatarFile.name : 'اضغط لرفع صورة (اختياري)'}
+              {avatarFile ? avatarFile.name : 'اضغط لرفع صورة شخصية'}
             </span>
             <input
               ref={fileInputRef}
@@ -254,9 +279,7 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-navy/60 mb-2">
-              رقم الجوال <span className="text-navy/35 text-xs">(اختياري)</span>
-            </label>
+            <label className="block text-sm font-bold text-navy/60 mb-2">رقم الجوال</label>
             <input
               type="tel"
               value={phone}
@@ -268,15 +291,54 @@ export default function SignupPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-navy/60 mb-2">
-              القسم / الكلية <span className="text-navy/35 text-xs">(اختياري)</span>
-            </label>
-            <input
-              type="text"
+            <label className="block text-sm font-bold text-navy/60 mb-2">الكلية / القسم</label>
+            <select
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
-              placeholder="مثال: كلية الهندسة"
               className="w-full border border-navy/15 rounded-xl px-4 py-3 text-navy text-sm focus:outline-none focus:border-navy focus:ring-2 focus:ring-navy/10 bg-cream/50"
+            >
+              <option value="">-- اختر الكلية / القسم --</option>
+              {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-navy/60 mb-2">
+              الوثائق والمؤهلات <span className="text-red-500">*</span>
+            </label>
+            <div
+              onClick={() => docInputRef.current?.click()}
+              className="w-full border-2 border-dashed border-navy/20 rounded-xl px-4 py-4 text-center cursor-pointer hover:border-navy/40 transition-colors bg-cream/30"
+            >
+              {docFile ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-navy text-sm font-medium truncate">{docFile.name}</span>
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); setDocFile(null); if (docInputRef.current) docInputRef.current.value = ''; }}
+                    className="text-red-500 text-xs mr-2 hover:text-red-700 flex-shrink-0"
+                  >✕</button>
+                </div>
+              ) : (
+                <div>
+                  <div className="text-2xl mb-1">📎</div>
+                  <p className="text-navy/50 text-sm">اضغط لرفع السيرة الذاتية أو شهادات الخبرة</p>
+                  <p className="text-navy/30 text-xs mt-1">PDF, DOC, JPG — حتى 5MB</p>
+                </div>
+              )}
+            </div>
+            <input
+              ref={docInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              className="hidden"
+              onChange={e => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                if (f.size > 5 * 1024 * 1024) { setError('حجم الملف يجب أن يكون أقل من 5MB'); return; }
+                setDocFile(f);
+                setError('');
+              }}
             />
           </div>
 
